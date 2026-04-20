@@ -14,7 +14,68 @@ Our system should deliver fast performance, while keeping data integrity. The UI
 
 The MSV aids MSE users keep track of their cards, notify them of any issuing actions required, and offer interactive UIs that will help filter through the cards for potential decks.
 
-## 1.2 Stakeholder Identification
+## 1.2 Use Cases
+
+Our system is designed as a complete one-stop solution for item organization, ensuring that warehouse workers always know where an item should be stored or retrieved from. Therefore, we developed a series of scenarios that integrate the most common and predictable use case needs into one workflow.
+
+1. __Storing Card Data__: The system should store all the card data into a persistent database
+    - User inputs their .mse-set files containing their cards.
+    - System extracts all card data from those files, separates it into individual card properties, then stores that card.
+    - Upon input of a card with the same properties as a card already in the database, system throws a warning and asks for review.
+    - User can query the database for cards with specific properties.
+    - User can update card properties.
+    - Cards in the database will be associated with Power scores based on their attributes, set by the creator.
+    - User may dynamically assign Power scores to any subset of cards within a set file while inputting that set's card data.
+
+2. __Storing Keywords__: The system should extract all the keywords from the input cards and store them separately.
+    - User may individually introduce card keywords, by stating their names and abilities.
+    - When card data is inserted, if a keyword doesn't exist, the system extracts it and its functionality and stores it automatically.
+    - When card data is inserted, if a keyword exists but its definition is modified, system throws a warning and asks for review.
+    - User can query the database for specific keywords, or cards bearing these keywords.
+    - User can update keyword definitions.
+
+3. __Storing Decks__: The system should store collections of cards, symbolizing MTG decks that use cards in the database.
+    - User may individually introduce deck files.
+    - System extracts all cards in deck files, links to cards in the database, then stores decks as lists of references to cards.
+    - User can query the database for specific decks, and view cards in those decks.
+    - User can update decks.
+    - Decks can hold additional information, such as theme, deck type, etc.
+
+4. __Update Workflows__: The system should notify users of need of print runs due to modifications to already existent objects.
+    - Upon modification of a card or a keyword, system triggers an Update Workflow.
+    - System searches for all decks containing that card / all cards containing that keyword, then for each of those decks/cards issues a notice message in an unread state regarding a new print run of the updated card.
+    - User keeps a log of notices that can be in an unread, standby, issued or completed state.
+    - Once user reads a notice, it moves from an unread to a standby state.
+    - Once user has issued the print run, it can toggle the notice from standby to issued. 
+    - Once user delivers the updated card, it can toggle the notice from issued to completed.
+    - For each notice in an issued state, user can add additional notes regarding the physical storage state of the new card print.
+
+5. __Interactive Interface__: The system should offer a nice-looking, interactive interface.
+    - User can upload files to the system as input.
+    - User performs queries on cards, keywords, and decks through an easy to use interface.
+    - User views results of queries on cards, keywords, and decks in an easy to read format.
+    - User can interactively handle notice messages and their state.
+    - Upon reviews being initiated, user will be presented with a diff of the existing version of the object in the database and the modified version of the object in the input.
+    - User will choose to accept or reject the input modifications. Upon accepting, system will trigger updates on all affected objects and issue notice according to the Update Workflow.
+
+6. __Public Hooks__: <span style="color:pink">Coming Soon<sup>TM</sup></span>
+    - <span style="color:pink">System should offer over-the-web, less privilege access to remote viewing users.</span>
+    - <span style="color:pink">Viewers can query the databases for cards with specific properties.</span>
+    - <span style="color:pink">Viewers can query the database for specific keywords, or cards bearing these keywords.</span>
+    - <span style="color:pink">Viewers can query the database for specific decks, and view cards in those decks.</span>
+    - <span style="color:pink">Viewers can request the printings of cards from the database, based on their Power scores allowance.</span>
+    - <span style="color:pink">Viewers can suggest modifications to existent cards, keywords or decks.</span>
+
+7. __Deckbuilder Support__: <span style="color:pink">Coming Soon<sup>TM</sup></span>
+    - <span style="color:pink">Viewers can build decks using cards in their database, based on their Power scores allowance.</span>
+    - <span style="color:pink">System offers an automated deck builder, that takes into account deck themes, card abilities, etc. and balances it against Power allowance. </span>
+  
+8. __Backwards Compatibility__: Any field changes to the database structure will not break the database or query functionality, and will trigger reviews to the user to fill those fields for existing objects.
+
+
+## 1.3 System Context
+
+Within our system, we identified several essential, interdependent, internal components: 
 
 ----
 
