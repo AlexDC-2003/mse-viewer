@@ -1,0 +1,20 @@
+1. "Postgres (Docker) or SQLite (no Docker) for Phase 1?"
+Let's just use Docker with Postgres already.
+
+2. "Keyword identity: loose (A) or strict (B)?"
+Strict. Suspend(number) and Suspend(cost) are different (yet similar) keywords, from both my view and how MSE manages keywords
+
+3. "Tokens DB: same schema with nullable fields, or distinct ORM model?"
+Tokens shouldn't have rarity or PWL fields, but some tokens have flavor. Exclude rarity & PWL, make everything els nullable fields
+
+4. "Color tiers: first-non-empty-wins (no merge), confirmed?"
+First wins (it will usually be casting_cost)
+When it comes to the multi-face cards, the secondary card is isolated from the main face. Thus, use its specific _2 fields, in the same order
+
+5. Repository pattern vs talking to ORM directly from services. I lean toward thin repositories (just to centralize the upsert / append-list / identity-lookup quirks). Confirm or veto.
+Can you explain a bit the difference? I lean to repo patterns, but just to make sure.
+
+6. "uv vs pip-tools vs vanilla pip install -r requirements.txt. Doesn't change anything structural; pick what you'll actually run."
+I can do vanilla pip install -r requirements.txt.
+
+7. Also, for the notice/action log, for now only deal with the actions, as I may need to see anything that might act up with the parser. I do not yet need the print notice side to be done. Just make the architecture compatible for notices, but it's not needed now.

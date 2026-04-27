@@ -1,0 +1,26 @@
+0. "Repo pattern vs direct ORM" 
+Use Repo pattern
+
+1. "Storage of colors and keywords lists — I'm planning JSONB arrays in Postgres, indexed with GIN where useful. Means WHERE 'red' = ANY(colors) works. Alternative is a join table per list. JSONB is far simpler and fast enough at your data scale; recommending it. OK?"
+
+OK.
+
+2. "The name column as the stored identity needs a unique index. For Cards and Tokens separately (a card and a token can share a name — e.g. spell "Goblin" and a "Goblin" token). Confirming the namespaces are separate."
+
+Yes, namespaces are separate
+
+3. "alt_arts semantics — when modal user marks "this is an alternate variant", we append the label. But we don't track which label corresponds to which physical print. That seems fine for Phase 1 since you said you'll manage prints manually; flagging in case I'm misunderstanding."
+
+Yes
+
+4. "Set name normalization — Set: New Capenna and Set: new capenna should be treated as same? I'd say yes (case-insensitive compare, store as-typed-first-time). Confirm."
+
+Yes
+
+5 "Project name — mse-viewer is the repo name, but is that also what you want as the Python package (mse_viewer) and Docker container name? Or do you have a friendlier name in mind? Easy to change later, just want to start with the right one."
+
+Yes
+
+Also slight note, I moved all the previous init_prompts answers to "documentation/prompts/Initialization Prompts" (aka one subfolder under where you are currently printing them, but keep printing where you are) if you need them.
+
+Let's start the scaffold.

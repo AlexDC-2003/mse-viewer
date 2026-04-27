@@ -1,0 +1,227 @@
+To answer your questions:
+
+1. The input will be only the "set" file from the .mse-set archives. The file with the card data, which is in a human-readable format and in english. So no unzipping or conversions would be required, just parsing basically text file, which is structured exactly how I showed in the snippets, those are copy paste from the files inside of the zips. I'd rather not store images, as they would be rather heavy on the db, but I want cards that have multiple images to basically have some sort of tracking via a variable. 
+
+For example, normal cards only/usually have 1 version. But legendary cards that are used in commander decks, such as the card "Clock Tower" can have alternate art for the commander decks. Thus, 2 variants exist: normal art and commander art.
+While I want this to be stored as only as one entity in the db, some field should remember all the alternate art versions, and when say an issue to print Clock Tower is made, it should allow me to specify which version I want, and if a commander deck with that card should issue the print, by default the variant should be the commander alternate.
+
+And again, no images. The cards will still be kept in the .mse-set files, this doesn't replace MSE, but should help me keep track of cards better.
+
+2. "Identity / deduplication" - for easeness, the FULL NAME of the card should be used as the identifier. So if a spell "Zap" is introduced, it should warn be if the spell already exists. Which brings me, the warn should have some options. Apart from scrap/update, it should also allow me to just specify if this is an alternate variant.
+Example: Going back to Clock Tower, I will first introduce it in the newcapenna set file. But when I will introduce the commander deck S1D3/"Rise for the Titans" file, Clock Tower is also on the list, but has the alternate image. The system should allow me, in that warning, to input that it is an art variant, and that it should store "commander alternate" to the field of all alternate arts for the Clock Tower card if it doesn't have it already.
+
+Note: I may accidentally have 2 different cards with the same name. If I made this mistake, but have no time to fix it, maybe put it with a difference e.g. if I have a "Burn" card, and I want to also keep a new "Burn" card maybe internally save it as "Burn 2"
+
+There is a single exception. I have some cards, with the card type "Basic ...", but that also have playable normal versions. Anything that has "Basic" in the super_type field should be stored as "Basic X", where X is its actual name
+
+One more more thing. the one time you will have multiple cards with the same name in one set is for cards with the super_type "Basic Land". They just have more different arts, but that's fine. Again, offer me the power in the warning to accept or reject, so I can add a "6x art" in the alternate art field.
+
+3. "Versioning / history" - i actually don't care about "past versions", I do not want to keep track on what changes to a card. What I do care, is that when you would overwrite an existing card's text !!!that's been printe!!!, this goes to the notice log to tell me "Hey, you modified this printed card. You should print it again". I do not care how and why I modified it. I will input data in this DB app anyways only after modifying it and testing it in MSE anyways. Again, this is a companion DB, not a replacement
+
+In rest, I agree with all your analysis and choices
+Now, here comes the most important part - the parser. I have many requirements that need to be met. I will try to best describe my vision, then you tell me how to do it.
+
+I will also talk specifically on an example:
+```
+card:
+	stylesheet: m15-altered-beyond
+	stylesheet_version: 2020-09-04
+	has_styling: true
+	styling_data:
+		frames: 
+		legend_crown: standard
+		other_options: pokemon evobar
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	notes: 
+	time_created: 2023-12-29 21:50:07
+	time_modified: 2024-10-26 23:40:53
+	card_color: white, black, green, multicolor, horizontal
+	name: Ra, the Fake Prophet
+	alias: Evo: Ra Cultist
+	casting_cost: 2/W2/BG
+	image: image10
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Legendary Evolution Creature</word-list-type-en>
+	super_type_2: <word-list-type-en></word-list-type-en>
+	super_type_3: <word-list-type-en></word-list-type-en>
+	sub_type: <word-list-race-en>God</word-list-race-en><atom-sep> </atom-sep><word-list-class-en>Cleric</word-list-class-en><soft><atom-sep> </atom-sep></soft><word-list-class-en></word-list-class-en>
+	sub_type_2: 
+	sub_type_3: 
+	rarity: rare
+	rule_text:
+		<kw-0><nospellcheck><key>Evolve: <param-name>Ra Cultist;</param-name></key></nospellcheck></kw-0> <kw-0><nospellcheck><key>Evocycling</key></nospellcheck></kw-0>
+		Whenever an opponent taps a permanent for mana, they gain a dusk counter and you put a sun counter on Ra, the Fake Prophet.
+		At the end of an opponent’s turn, that opponent may pay <sym-auto>X</sym-auto>, where X is the number of dusk counters they have. If they don’t, they lose the game. Otherwise, they remove X dusk counters.
+		Remove a sun counter: Add <sym-auto>W</sym-auto> or <sym-auto>B</sym-auto> or <sym-auto>G</sym-auto>.
+	rule_text_2: 
+	rule_text_3: 
+	flavor_text: <i-flavor></i-flavor>
+	flavor_text_2: <i-flavor></i-flavor>
+	flavor_text_3: <i-flavor></i-flavor>
+	power: 3
+	toughness: 6
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+```
+
+The parsing will probably be done "per card". Aka you will parse cards and give warnings one by one. Note that many of those fields will be missing, so handle their absence.
+
+I will also want 2 DBs:
+1. one for the regular cards
+2. one for the "token"/"conjured" cards
+
+Also, I misspoke, take into account in the set header about the whole set style, if the "styling:" field has a subfield "magic-m15-altered:" which has a subfield "frames: fnm promo". If so, then consider as though each card with the stylesheet "m15-altered" and empty frames for that file as if they have "frames: fnm promo" by default.
+if the "styling:" field has a subfield "magic-m15-extra-udelude:", then all file in that set with a missing stylesheet are Design Type attribute "Additional Color - Unique"
+
+All the card_code_text and copyright can probably be ignored (I will double check). 
+Stylesheet_version, has_styling fields can be ignored.
+
+a) For the styling field, I want a field in my cards that should store it as an attribute "Design Type". 
+I expect the following field inputs from the file to be converted for the db:
+- if the stylesheet field is absent, the Design Type attribute should be "Normal"
+- if the stylesheet field is "m15-altered" 
+    + and the "styling_data:" has "frames: fnm promo", the Design Type attribute should be "Colorpushed"
+    + if "styling_data:" has "frames: snow" or frames are empty, the Design Type attribute should be "Normal"
+    + otherwise, throw warning showing me the card name, stylesheet and styling_data values, and let me input a custom name for the attribute
+- if the stylesheet field is m15-mainframe-planeswalker, the Design Type attribute should be "Normal"
+- if the stylesheet field is m15-mainframe-tokens, the Design Type attribute should be "Normal"
+- if the stylesheet field is "m15-altered-beyond", the Design Type attribute should be "Unique"
+    + however, this should not be the case if it's an evolution or a hero card, as noted by the "super_type" field
+- stylesheet: m15-extra-udelude-beyond, the Design Type attribute should be "Additional Color - Unique"
+- stylesheet: m15-extra-udelude, the Design Type attribute should be "Additional Color"
+
+For all other combinations of stylesheet & styling_data combos, for that card currently being parsed, throw a warning, showing me the card name, stylesheet and styling_data values, and let me input a custom name for the Design Type attribute.
+
+b) A card color attribute (which can contain multiple strings), based on the fields: 
+- "card_color" field, such as "card_color: black, green, multicolor, horizontal"
+- "indicator" field, such as "indicator: red, multicolor"
+- the "extra_data:" subfields, such as here:
+    extra_data:
+		magic-m15-extra-udelude:
+			frame: brown
+			extra_indicator: brown
+    From here, brown is the color extracted. If discrepancy, extra_indicator > frame
+- the "casting_cost" field, such as "casting_cost: 4BG"
+For all the fields, take only the following values: colorless, blue, white, black, red, green, brown, orange, yellow, purple, pink, teal.
+To extract colors from casting costs, if a certain letter appears in that card's cost, it has that color:
+- B for black
+- U for blue
+- R for red
+- G for green
+- W for white
+- O for orange
+- K for pink
+- P for purple
+- E for brown
+- L for yellow
+- N for teal
+- if no such letters appear, the card is considered "colorless" as far as the casting cost goes
+The order of power in case fields contradict themselves: 
+colors extracted from casting costs (unless only colorless is extracted) > indicator > extra_data > card_color
+
+c) Name attribute, based on the "name" field, such as "name: Baraggan King of Souls". This one is simple
+
+d) "Card Type" attribute, based on the "super_type" field. You can strip all the tags like <word-list-type-en>
+- all the cards with "Token" here should be sent to the 2nd token cards DB!!!!
+
+e) Card's "toughness" & "power" attributes, based on the "power" and "toughness" fields
+
+f) card's "flavor text" attrs, noted by the "flavor_text" field
+
+g) "Card Subtype", based on the sub_type field
+
+h) "Rarity" attribute, based on the rarity field
+- if the rarity is "special", then I want a warning to pop up for that card, asking me to which DB I want, and also what "Design Type" I want to write for that field.
+
+i) From the "Notes" field, I will want you to look out for one key structure:
+"PWL: X", with X being a number. I want a "Power Level" attribute, which will be derived from this.
+Also before inputting the set file through the UI, I want the ability to set the power for each rarity for that specific set, while specific PWL: X in the Notes will override that.
+For e.g., for the "generics" set, I want to set PWL to 1 for commons, 2 for uncommons, 3 for rares, 5 for mythics, but any individual notes for cards within the set will override it for that card. But in its absence, this is the baseline used, the one I will set while/before inputting the file. (as you can see, I will need a solid UI)
+
+j) The "alias" field. It can have 2 types of values:
+- the "Evo: <card name>", which is for evolutions. There should be an attribute, "Related Cards", that for most cards would be empty, but for cards such as evo cards, this card from the alias should be included.
+for the cards with "Token" in their "super_type", or cards that I designate should go in the second Token/Conjured DB, I want the code to read from the "Notes" field for "Related Cards: <card name>", then put that in the "Related Cards". Thus, the warning should also print this value on the UI when it asks for my approval, and default to that <card name>, but allow me to change it.
+
+As you can see, these warnings can stack. Please in the warning UI, make sure to include all of those that I mentioned as much as possible if any is applicable (maybe by default include everything in the layout, but don't show off the stuff not applicable for that warning)
+
+k) the most important: parsing the "rules_text" field.
+- The keywords have their own DB we will get to. I want you to extract all the keywords, nicely indicated by the <key> tag, and check it against the keyword DB, and if not existent, add it there
+- Keywords should also still appear in the card data, but it should appear twice - once, in a specialized "Keywords" attributes, that should only contain links to the actual keywords in the db, stripped of their parameters - and secondly, they should still appear in the "abilities" attribute alongside other attributes, this time alongside their parameters.
+- Other abilities in "rules_text" should appear in the "abilities" attribute
+
+l) "Set" attribute - this mentions which set file that card comes from. Like with the Power Level  for setwide rarities setting, this should be available in the UI when I want to input before/while inserting my set file data. It will be a writable field in that UI where I will write the name of the set, that should be stored in the "Set" attribute. Cards with alternate art may have multiple sets, so again, updates to this need to be appends (this could be done simply by whenever I want this to be modified, I will get in that field the current value, so I can append to it, then system just overwrites. You could do this for each field that I could manually override for e.g. when giving me warnings)
+
+I think that's it for the card parsing.
+
+Now, onto keyword parsing:
+a) as I mentioned, the keywords should be stripped of their db. But if they have a parameter, a "Accepted parameter" attribute should be here, where a list of (<param-type>) values should be stored for each parameter
+b) obviously, a name attribute exists. Keywords differ through their full name + parameter list combo!
+for example:
+keyword:
+	keyword: Suspend
+	match: Suspend <atom-param>number</atom-param> — <atom-param>cost</atom-param>
+	reminder: Rather than cast this card from your hand,{if has_cc() then " you may" else ""} {for_mana_costs(add:"pay ", param2)} and exile it with {english_number_a(param1)} time counter(s) on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.{if has_pt() then " It has haste." }
+	rules: 
+	mode: expert
+
+and
+
+keyword:
+	keyword: Suspend
+	match: Suspend <atom-param>number</atom-param>
+	reminder: Exile it with {english_number_a(param1)} time counter(s) on it. At the beginning of your upkeep, remove a time counter. When the last is removed, cast it without paying its mana cost.{if has_pt() then " It has haste." }
+	rules: 
+	mode: expert
+
+are different keywords, as one takes only a number, the other a number + parameter
+
+
+c) A keyword's name is the same as the "match:" field!!!! Not the "keyword" field!!!
+d) the "reminder" attribute based on the "reminder" field. Make sure to also keep all the logic statement functions, like for suspend keep "{english_number_a(param1)}" in the reminder text.
+e) if the "mode" field is "pseudo", set a "Pseudo-keyword" attribute to True
+
+I think that's it for keywords. Though to note, you should probably parse the keywords & store them first, then cards, as cards will use those keywords and need to link to them
+
+One note, the basic MTG keywords, such as trample, don't have their definitions in the file. When parsing cards, you will hit those key tags, but with no appropriate definition. Leave all the other info empty, then make a notice in the action log workfolw thingy of the general app (that honestly becomes more and more an action board than a logging system). I will manually introduce them
+
+Also, of course allow me to input a file just with keywords in the UI, though that doesn't have anything to do in particular with card parsing app. This really turns out to be a brainstorming operation, the final specification needs a lot of refinement for what goes where.
+
+
+Finally, I want another toggle in the UI before I introduce my set. I want to specify if I introduce a set, or a deck file.
+If it's a set, then do so as I mentioned.
+
+If I selected a deck file, then the only relevant stuff is the names of the cards, as these cards should already be in the db.
+
+The deck table will look something like:
+a) name - from a manual writing field in the UI before file input
+b) format - from a field in the UI before file input - for now, 1v1, tester and commander as values should be sufficient
+c) code - from a manual writing field in the UI before file input
+d) owners - from a manual writing field in the UI before file input, multiple strings, the append thing
+e) theme - from a manual writing field in the UI before file input
+f) colors - from a manual writing field in the UI before file input (it could be automated, but that adds a ton of overhead). For now, I will do it myself, but i may automate it in the future
+g) archetype  - from a manual writing field in the UI before file input
+h) if the deck format is commander or tester, it should also have these attributes:
+    - commander
+    - package - can be Core/Expansion/Supplement, or left empty
+    - related decks -> this should actually be a foreign key to another deck record, but only if Expansion/Supplement were picked in package
+i) size -> 100 if commander deck format is selected, otherwise manually writeable with a default of 60
+
+I hopefully think that's it.
+
+Across all fields, you may strip tags used for MSE, I do not care to keep those
+
+As you can see, this is a lot of info. Combine and structure it all so I can review it. This turns out more of brainstorming session than anything else :p. Am I missing anything, based on the card & keyword snippets I gave you of how the card data is structured? Feel free to give feedback and improvements to my structure, without breaking my needs and use cases
+
+Hope you don't get lost, it's a big ask.
+
+
+
+
