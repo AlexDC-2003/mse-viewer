@@ -97,6 +97,40 @@ MSE stores its sets into files with the ".mse-set" extension. These files are, i
 The "set" file structured in the following way:
 
 1. A "header", containing all the set metadata - MSE version and file timestamps, stylesheet information, and some template styling options active for that set (though some information regarding template is present in each card's metadata)
+```
+mse_version: 2.0.2
+game: magic
+game_version: 2025-06-14
+stylesheet: m15
+stylesheet_version: 2024-05-26
+set_info:
+	symbol: 
+	masterpiece_symbol: 
+styling:
+	magic-m15:
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		overlay: 
+	magic-m15-altered:
+		frames: 
+		other_options: 
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	magic-m15-altered-beyond:
+		shrink_typeline_text: 
+		frames: 
+		legend_crown: standard
+		other_options: pokemon evobar
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	magic-m15-extra-udelude-beyond:
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+```
 2. Card fields - a list of "card" fields. Each field corresponds to an individual card metadata, preceded by a "card:" identification string. It contains all the information about rules text, cost, stats. An example of a card field:
 ```
 card:

@@ -1,0 +1,139 @@
+1. "Persist a "warning playbook" table. Each time you answer "unknown Design Type = Colorpushed-experimental" in a modal, store the mapping. Next import with the same (stylesheet, styling_data) combo auto-applies it. Saves clicks across imports."
+
+Sure
+
+2. "Dry-run mode for ingestion. Parse the whole file, show all warnings at once in a summary table, let you review & batch-resolve before anything commits. You already want per-card warnings — a "summary view" option on top is cheap and stops you losing 40 minutes to modals."
+
+The problem is, I would like to decide for each card, and be sure it works. A summary view could be either pretty crowded, or useless as they can't display enough options & info. So while it makes sense, idk how useful that would be.
+
+3. "Canonical mana symbol format. Pick {W} / {2/W} / {X} (Scryfall's convention) for rule_text storage. Future you will thank current you when rendering or diffing."
+
+On one hand, I'd like to use Scryfall. Actually, let's do that.
+
+4. "Keyword identity hashing. Normalize the match string (trim whitespace, normalize <atom-param>name</atom-param> → <atom-param>_</atom-param> for identity; keep raw version for display). Two keywords with the same structure but different param labels (number vs count) should be the same keyword; param labels go into accepted_parameters for reference, not identity."
+
+Can you explain this in more detail? Like I said, the number & type of params does make a difference to the keyword. Suspend with a number and cost is different than Suspend with just a number.
+
+5. "Store set-level PWL defaults on the set record, not just as transient form input. If you re-import the same set later you don't want to re-enter them."
+
+I don't understand, what "set record". I told you, you will have a global pwl per rarity that I will input in the pre-input form, and that will be overridden by PWL mentions in the notes.
+
+6. "Action log ≠ notice log. You already noticed this drift — I'd formalize two streams: notices (reprint-required, user-actionable workflow), and action log (missing keyword defs, unparseable fields, anything the parser punted on). Same UI, two filters."
+
+Here is the thing. I do believe only one log is enough. You of course will have warning tasks, the notices for printing, and the action tasks, stuff I have to do server-side, so filters will be welcome. But I don't think I need 2 separate features. Is this what you meant?
+
+7. ""Evolution or Hero" exception for m15-altered-beyond — what is the exception's output? You said "this should not be the case", but didn't say what design_type it should be. My guess: Unique - Evolution / Unique - Hero? Or fall through to another rule entirely?"
+
+This should be normal. While evolutions and heroes do have the m15-altered-beyond stylesheet, this is a basic rule I made for them, all Evo/Heroes have that stylesheet. So this is why I think they should just have the "Normal" Design Type. Because while for regular cards I used the stylesheet to denote unique/special cards, evos by default have the altered beyond stylesheet as their "Normal". They should have normal
+
+8. "Deck card quantities — decks are card references, but constructed decks need 4-ofs, lands need counts. How are quantities encoded in your deck files? Same name: repeated N times, or a count field? I can't see a deck file snippet."
+
+Multiple instances of the same card should just be stored in some sort of count field for that deck.
+In the decks I will input, multiple copies of each card are just repeated. For example, if a deck has 4 Zap spells, the Zap card will appear 4 times in the list I will input. From that, if a card is found multiple times while analyzing the deck list, the system should just increase count.
+
+The "deck" files will just be regular set input files. I stored my decks in just separate .mse-set files, with each card copy pasted in that set file for each individual appearance. This is why I want the distinction of introducing either a set or a deck into the system, because the file structure will be the exact same.
+
+9. "card_color: hybrid, horizontal, multicolor — confirming these are layout hints we should ignore, not color values. (My inference.)"
+
+Yes. Other and the fact if multicolor and nothing else appears, and as such you should catalog it as colorless, skip anything that's not a color I specified
+
+10. "Identity for stub keywords. If "Trample" appears before any keyword-input file defines it, we create a stub. Later you upload a file defining Trample. Should the parser merge into the stub (matched by keyword: or by match:?), or prompt for confirmation via a notice?"
+
+Merge into the stub. If I hand-input keywords, I will ensure they are the correct versions.
+
+In fact, any manual updates & introductions I do, they will be definitive, you don't need to double check via prompting. Only prompt me if you find repeats with different values than the ones in db while analyzing the set files I input
+
+11. "Basic Lands in a set — you said multiple entries with same name are expected (6× art Plains). Should these all fold into one record with alt_arts = ["6x art"], or six records with disambiguated names? Your rule "Basic X" suggests one record."
+
+Fold into one record, but record the 6x art tag for the variants.
+
+12. "Cards with colorless cost but colored rule text activations (e.g. cost = 3, but ability adds {W}). Per your spec these are colorless. Confirming."
+
+Yes, color comes solely from the stuff I mentioned, with highest priority the casting cost.
+
+13. "Set header parsing — the header's styling: uses keys like magic-m15-altered while cards use stylesheet: m15-altered (missing magic- prefix). Parser needs to reconcile. Confirming: strip magic- prefix when matching. Note your example also has a bug where casting_cost_mana_symbols appears twice under magic-m15-altered — expect duplicates in the wild."
+
+Yes and yes.
+
+14. "Rejecting in review modal — does "reject this card" skip just this card, or abort the whole import? Default: skip-and-continue, log to action log."
+
+Skip the card. Then add all that card info to a list of cards, accessible from my task list/action list
+
+15. "Notes field grammar — is it one key-value per line (PWL: 3\nRelated Cards: Zap Token)? Comma-separated? I'll assume one-per-line unless told otherwise."
+
+It will be like this:
+```
+	notes:
+		black — Horse or Lies and Deceit
+		green — Horse of Absolute Agreement
+		Red — Horse of Absolute Disagreement
+		colorless — Horse of Suspicion and Distrust
+		white — horse of shock and astonishment 
+```
+it will be over multiple lines. It will also contain text that should be put in a notes field in the db. I will try to keep the relevant stuff, like PWL and related cards info on separate lines from the miscelanious text:
+```
+PWL: 3
+Related: Zapricot, Fruitcake 
+```
+so on separate lines, while all related cards are comma-separated.
+Also, regarding this, the PWL & Related cards should be stripped and not added to the card's notes field that should contain other note data
+
+16. "Multi-face cards — name_2, rule_text_2, super_type_2, power_2, etc. exist in MSE for split/modal/transform cards. Your spec treats _2/_3 as non-existent. Are these cards out of scope, or do you want a second face stored? (A simple option: concatenate into rule_text separated by ---; harder-but-correct: store faces as child records.)"
+
+Multi-face will have 2 separate records, one for each card, and should reference each other in the related cards field.
+This is how multi-face cards will look in the input:
+card:
+	stylesheet: m15-mainframe-dfc
+	stylesheet_version: 2020-09-04
+	has_styling: true
+	styling_data:
+		dfc_type: modal with standard flags
+		front_style: nyx
+		back_style: nyx
+		other_options: use hovering pt, use holofoil stamps, center front, center back, nyx front, nyx back, back color indicator, unindent nonloyalty abilities, auto nyx crowns, godzilla style alias, automate type frames
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	notes: 
+	time_created: 2024-09-26 06:30:21
+	time_modified: 2024-10-01 23:05:12
+	card_color: blue, land
+	name: Vast Lagoon
+	alias: Commander Masters Exclusive
+	image: image28
+	super_type: <word-list-type>Land</word-list-type>
+	sub_type: <word-list-land></word-list-land>
+	rarity: uncommon
+	rule_text:
+		<sym-auto>T</sym-auto>: Add <sym-auto>U</sym-auto> to your mana pool.
+		During your upkeep, you may return Vast Lagoon from your graveyard to the battlefield by paying <sym>1</sym>.
+	flavor_text: <i-flavor>In the heart of the jungle lies a lagoon untouched by time.</i-flavor>
+	card_code_text: 
+	copyright: 
+	name_2: Drop in the Water
+	alias_2: Commander Masters Exclusive
+	casting_cost_2: U
+	image_2: image30
+	super_type_2: <word-list-type>Sorcery</word-list-type>
+	sub_type_2: <word-list-spell></word-list-spell>
+	rule_text_2: Draw a card, then <kw-1><nospellcheck>scry <param-number>2</param-number></nospellcheck>.<atom-reminder-core> <i-auto>(To scry <param-number>2</param-number>, look at the top <param-number>two</param-number> cards of your library, then put any number of them on the bottom of your library and the rest on top in any order.)</i-auto></atom-reminder-core></kw-1>
+	flavor_text_2: <i-flavor>One drop can ripple through the fabric of reality, altering destinies with the grace of a whispered secret.</i-flavor>
+	copyright_2: 
+	copyright_3: 
+	mainframe_image: 
+	mainframe_image_2: 
+
+Worst case, I will put a "Do Not Read" in the notes for complex cards I will introduce manually, and if it's there the system should just skip it and add it to the actions log that will need my attention.
+
+17. "printed	notice workflow	Boolean. Flips true when a print-run notice for this card reaches completed. Drives whether future updates trigger a reprint notice."
+
+Not quite. In the notes, I will add this: "Status: Printed" for cards that, at upload time, already have print runs. If so, then while reading input, put true. Otherwise, by default it should be false. Whenever I will print a new card in the future, I will manually modify the db. Since all the notice logs should deal with already printed cards, that system shouldn't touch the printing status, as again, that will only warn me of actions needed for reprints, not new prints.
+
+Any further ambiguities?
+
+Also, let's also start the code. I will give you specifications, so you know what I expect. DO NOT START CODING YET
+
+1. I want many files. I don't want my code all in one file. I want clear separation of services, features, domains etc.
+2. I want to start with the simplest thing: the input. In the first phase, I just want the db to be set, and the input parser to work properly, that is the most important thing. Of course, an output viewer should also be made so I can verify that input is correct, but nothing extremely fancy. It should look clean and work properly.
+
+What structure/code in depth ideas do you have for the first phase? And what planning for how to make the files & features & everything?

@@ -1,0 +1,5 @@
+!!! Might remove in favour of manual card parsing before input !!! #TODO
+Also, I misspoke, take into account in the header about style, if the "styling:" field has a subfield "magic-m15-altered:" which has a subfield "frames: fnm promo". If so, then consider as though each card with the stylesheet "m15-altered" has "frames: fnm promo" by default.
+!!! Might remove in favour of manual card parsing before input !!! #TODO
+
+Some sets have global fnm promo by default enabled. Check how to handle those.

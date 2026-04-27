@@ -1,0 +1,198 @@
+I will give you some background information:
+
+I have created custom MTG cards, using the Magic Set Editor, across multiple "set" files. 
+
+Each of these files has an ".mse-set" extension. 
+I found out this extension is a zip archive that contains multiple files named imageXX, that contain the card pictures, alongside a "set" file.
+This set file contains all the card data of the set. Here are some snippets and the structure of that file (I can't upload it entirely, it has 13k lines):
+
+1. A "header", containing all the set metadata - MSE version and file timestamps, stylesheet information, and some template styling options active for that set (though some information regarding template is present in each card's metadata)
+```
+mse_version: 2.0.2
+game: magic
+game_version: 2025-06-14
+stylesheet: m15
+stylesheet_version: 2024-05-26
+set_info:
+	symbol: 
+	masterpiece_symbol: 
+styling:
+	magic-m15:
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		overlay: 
+	magic-m15-altered:
+		frames: 
+		other_options: 
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	magic-m15-altered-beyond:
+		shrink_typeline_text: 
+		frames: 
+		legend_crown: standard
+		other_options: pokemon evobar
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	magic-m15-extra-udelude-beyond:
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+```
+
+2. Card fields - a list of multiple "card" fields. Each field corresponds to an individual card metadata, preceded by a "card:" identification string. It contains all the information about rules text, cost, stats. An example of a card field:
+```
+card:
+	stylesheet: m15-altered-beyond
+	stylesheet_version: 2020-09-04
+	has_styling: false
+	notes: 
+	time_created: 2023-12-30 18:53:34
+	time_modified: 2024-10-28 01:27:23
+	card_color: black, green, hybrid, horizontal
+	name: Baraggan King of Souls
+	alias: Evo: Baraggan Louisenbairn
+	casting_cost: BG
+	image: 
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Evolution Creature</word-list-type-en>
+	sub_type: <word-list-race-en>Menos</word-list-race-en><soft><atom-sep> </atom-sep></soft><word-list-class-en></word-list-class-en>
+	rarity: uncommon
+	rule_text:
+		<kw-0><nospellcheck><key>Evolve: <param-name>Baraggan Louisenbairn</param-name></key></nospellcheck></kw-0>
+		<kw-1><nospellcheck><key>Evocycling</key></nospellcheck><atom-reminder-custom> <i-auto>(Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)</i-auto></atom-reminder-custom></kw-1>
+		Creatures opponents control have -2/-2.
+		Other creatures you control have +2/+2.
+	flavor_text: <i-flavor></i-flavor>
+	power: 4
+	toughness: 5
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+card:
+	stylesheet: m15-altered-beyond
+	stylesheet_version: 2020-09-04
+	has_styling: false
+	notes: 
+	time_created: 2023-12-30 19:02:41
+	time_modified: 2024-10-28 01:27:06
+	name: Alpha Starrk
+	alias: Evo: Coyote Starrk
+	casting_cost: G
+	image: 
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Evolution Creature</word-list-type-en>
+	sub_type: <word-list-race-en>Menos</word-list-race-en><soft><atom-sep> </atom-sep></soft><word-list-class-en></word-list-class-en>
+	rule_text:
+		<kw-0><nospellcheck><key>Reach</key></nospellcheck></kw-0>
+		<kw-1><nospellcheck><key>Evolve: <param-name>Coyote Starrk</param-name></key></nospellcheck><atom-reminder-custom> <i-auto>(To cast this spell, you must transform a <param-name>Coyote Starrk</param-name>.)</i-auto></atom-reminder-custom></kw-1>
+		<kw-0><nospellcheck><key>Evocycling</key></nospellcheck></kw-0>
+		Whenever a creature under your control dies, draw a card.
+	flavor_text: <i-flavor></i-flavor>
+	power: 7
+	toughness: 8
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+```
+They are listed like this, one after another, each card has the "card" field (with no indent), followed by properly indented card data
+
+3. Keyword definitions - contains all the custom defined keywords for that set file, also one after another. An example of a keyword definition:
+```
+keyword:
+	keyword: Evolution
+	match: Evolve: <atom-param>name</atom-param>
+	reminder: To cast this spell, you must transform a {param1}.
+	rules: 
+	mode: custom
+keyword:
+	keyword: Heroic Prowess
+	match: Heroic Prowess <atom-param>mana</atom-param> — <atom-param>name</atom-param>
+	reminder: As you cast a {param2}, you may pay {param1}. If you do, exile this card from outside the game and transform that spell into this.
+	rules: 
+	mode: custom
+keyword:
+	keyword: Taunt
+	match: Taunt
+	reminder: A taunted creature must block or be blocked by this creature until end of turn. If that creature was or had an assigned blocker, it blocks or is blocked by this creature instead.
+	rules: 
+	mode: custom
+```
+They are listed like this, one after another, each keyword has the "keyword" field (with no indent), followed by properly indented keyword data.
+
+What is the problem? I have multiple versions of the same card (differentiated by template and art), and cards that have the same keywords split across different set files.
+Thus, whenever I want to update one of those cards/keywords, I need to update it across different files. Furthermore, if it's for already printed cards, I will need to go to that file, issue an export to pdf, then print that issue.
+But if I forget any files that have that card/keyword, then I can't update and print them. Thus, cards have inconsistencies.
+
+Thus, I am building a solution for this. I will build a storage to house a central version of all my card data, and notify me whenever I make a change to a printed card, that I should issue a reprint for it.
+I have modeled a system context, what app parts I would need, and brainstormed some in-depth use cases for the app:
+
+- card management system – responsible for storing and managing all card-related data. Handles ingestion of .mse-set files, including parsing and extraction of individual card properties. System supports querying, updating, and version tracking of cards, ensuring consistency across modifications. Serves as the primary data source for both creators and external viewers through the user interface.
+- keyword management system – maintains a unified repository of both official and custom keywords. Ensures consistency of keyword definitions across all cards by linking directly to the card data. System detects conflicts or modifications in keyword definitions and triggers review workflows when discrepancies arise.
+- deck management system – organizes cards into structured collections representing decks or design groupings. Stores metadata such as deck themes and types, and maintains references to cards rather than duplicating data. System enables querying, updating, and exporting of decks into standardized formats.
+- workflow & notification system – manages lifecycle events triggered by modifications to cards or keywords. Tracks dependencies between entities (e.g. cards within decks, keywords within cards) and generates notification tasks for required actions such as reprints. Maintains a stateful log of notices (unread, standby, issued, completed) and supports user interaction for progressing and annotating these workflows.
+- user interface layer – provides an interactive frontend for both creators and external users. Supports file uploads, querying, visualization of cards/keywords/decks, and interaction with workflow notifications. Facilitates review processes by presenting differences between existing and modified data.
+
+1. __Storing Card Data__: The system should store all the card data into a persistent database
+    - Users inputs their .mse-set files containing their cards.
+    - System extracts all card data from those files, separates it into individual card properties, then stores that card.
+    - Upon input of a card with the same properties as a card already in the database, system throws a warning and asks for review.
+    - Users can query the database for cards with specific properties.
+    - Users can update card properties.
+    - Cards in the database will be associated with Power scores based on their attributes, set by the creator.
+    - Users may dynamically assign Power scores to any subset of cards within a set file while inputting that set's card data.
+
+2. __Storing Keywords__: The system should extract all the keywords from the input cards and store them separately.
+    - Users may individually introduce card keywords, by stating their names and abilities.
+    - When card data is inserted, if a keyword doesn't exist, the system extracts it and its functionality and stores it automatically.
+    - When card data is inserted, if a keyword exists but its definition is modified, system throws a warning and asks for review.
+    - Users can query the database for specific keywords, or cards bearing these keywords.
+    - Users can update keyword definitions.
+    - System is preloaded upon deployment with core official keywords.
+
+3. __Storing Decks__: The system should store collections of cards, symbolizing MTG decks that use cards in the database.
+    - Users may individually introduce deck files.
+    - System extracts all cards in deck files, links to cards in the database, then stores decks as lists of references to cards.
+    - Users can query the database for specific decks, and view cards in those decks.
+    - Users can update decks.
+    - Decks can hold additional information, such as theme, deck type, etc.
+    - Users can generate exports of selected card data as text files in a consistent, predefined format.
+
+4. __Update Workflows__: The system should notify users of need of print runs due to modifications to already existent objects.
+    - Upon modification of a card or a keyword, system triggers an Update Workflow.
+    - System searches for all decks containing that card / all cards containing that keyword, then for each of those decks/cards issues a notice message in an unread state regarding a new print run of the updated card.
+    - User keeps a log of notices that can be in an unread, standby, issued or completed state.
+    - Once a user reads a notice, it moves from an unread to a standby state.
+    - Once a user has issued the print run, it can toggle the notice from standby to issued. 
+    - Once a user delivers the updated card, it can toggle the notice from issued to completed.
+    - For each notice in an issued state, users can add additional notes regarding the physical storage state of the new card print.
+
+5. __Interactive Interface__: The system should offer a nice-looking, interactive interface.
+    - Users can upload files to the system as input.
+    - Users can perform queries on cards, keywords, and decks through an easy to use interface.
+    - Users can view results of queries on cards, keywords, and decks in an easy to read format.
+    - Users can interactively handle notice messages and their state.
+    - Upon reviews being initiated, users will be presented with a diff of the existing version of the object in the database and the modified version of the object in the input.
+    - Users will choose to accept or reject the input modifications. Upon accepting, system will trigger updates on all affected objects and issue notice according to the Update Workflow.
+
+So, I will need a DB and an UI interface. I think I would like to do UI over the web for simplicity, for now on localhost.
+For now, let's brainstorm the tech stack and any other kinks i would need to work out for this project.
+I am thinking that I will use python, as that can import both db handling libraries and web ui handling libraries.
+For the db, I'm not sure. I used to have postgres db installed on my machine, but now I don't. I was thinking postgres or redis. 
+I recently used a redis db inside a docker container for another project, that also needed to store data locally. is that a thing and could i do something similar?
+For the UI I have no clue. What are some options available?
+Anything else I should know about for the design? Again, this is a brainstorming session, feel free to say anything relevant.
+
+
