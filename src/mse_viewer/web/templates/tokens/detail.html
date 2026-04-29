@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ token.name }} — mse-viewer{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <hgroup>
+            <h2>{{ token.name }}</h2>
+            <p>{{ token.card_type }}{% if token.card_subtype %} — {{ token.card_subtype }}{% endif %}</p>
+        </hgroup>
+    </header>
+    <dl>
+        <dt>Display name</dt><dd>{{ token.display_name }}</dd>
+        <dt>Cost</dt><dd>{{ token.casting_cost or "—" }}</dd>
+        <dt>Colors</dt><dd>{{ token.colors|join(", ") or "—" }}</dd>
+        <dt>P/T</dt><dd>{{ token.power or "—" }} / {{ token.toughness or "—" }}</dd>
+        <dt>Design type</dt><dd>{{ token.design_type }}</dd>
+        <dt>Sets</dt><dd>{{ token.sets|join(", ") or "—" }}</dd>
+        <dt>Alt arts</dt><dd>{{ token.alt_arts|join(", ") or "—" }}</dd>
+        <dt>Related cards</dt><dd>{{ token.related_cards|join(", ") or "—" }}</dd>
+    </dl>
+    <h4>Rule text</h4>
+    <pre style="white-space: pre-wrap;">{{ token.rule_text or "—" }}</pre>
+    {% if keywords %}
+    <h4>Keywords</h4>
+    <ul>
+        {% for kw in keywords %}
+        <li><a href="/keywords/{{ kw.id }}">{{ kw.name }}</a></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</article>
+<a href="/tokens" role="button" class="secondary">Back</a>
+{% endblock %}

@@ -1,0 +1,9 @@
+/* Tweaks on top of Pico.css. */
+:root { --pico-spacing: 0.8rem; }
+
+table { font-size: 0.95rem; }
+pre { background: var(--pico-code-background-color); padding: .5rem; border-radius: .25rem; }
+dl dt { font-weight: 600; margin-top: .25rem; }
+dl dd { margin-left: 1rem; }
+.warn { border-left: 4px solid var(--pico-color-amber-500); padding-left: .75rem; }
+nav ul { gap: .5rem; }

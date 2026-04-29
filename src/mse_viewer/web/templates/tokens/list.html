@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Tokens — mse-viewer{% endblock %}
+{% block content %}
+<h1>Tokens</h1>
+<form action="/tokens" method="get">
+    <input name="q" value="{{ q }}" placeholder="Search by name…">
+    <button type="submit">Search</button>
+</form>
+{% if tokens %}
+<table>
+    <thead>
+        <tr><th>Name</th><th>Type</th><th>P/T</th><th>Colors</th><th>Sets</th><th>Design</th></tr>
+    </thead>
+    <tbody>
+    {% for t in tokens %}
+        <tr>
+            <td><a href="/tokens/{{ t.id }}">{{ t.name }}</a></td>
+            <td>{{ t.card_type }}{% if t.card_subtype %} — {{ t.card_subtype }}{% endif %}</td>
+            <td>{{ t.power or "" }}/{{ t.toughness or "" }}</td>
+            <td>{{ t.colors|join(", ") }}</td>
+            <td>{{ t.sets|join(", ") }}</td>
+            <td>{{ t.design_type }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No tokens yet.</p>
+{% endif %}
+{% endblock %}

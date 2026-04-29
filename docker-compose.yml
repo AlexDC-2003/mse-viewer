@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16
+    container_name: mse_viewer_db
+    environment:
+      POSTGRES_USER: mse
+      POSTGRES_PASSWORD: mse
+      POSTGRES_DB: mse_viewer
+    ports:
+      - "5432:5432"
+    volumes:
+      - mse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mse -d mse_viewer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    container_name: mse_viewer_app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://mse:mse@db:5432/mse_viewer
+      APP_ENV: dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./alembic:/app/alembic
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn mse_viewer.main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  mse_pgdata:

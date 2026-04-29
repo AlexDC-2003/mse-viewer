@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Ingest finished — mse-viewer{% endblock %}
+{% block content %}
+<article>
+    <header><h2>Ingest session finished</h2></header>
+    <p><strong>{{ session.committed|length }}</strong> records written ·
+       <strong>{{ session.skipped|length }}</strong> skipped/rejected ·
+       total <strong>{{ session.total }}</strong>.</p>
+    <ul>
+        <li><a href="/cards">Browse cards</a></li>
+        <li><a href="/log?kind=action">Review action log</a></li>
+        <li><a href="/upload">Upload another set</a></li>
+    </ul>
+</article>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Review — mse-viewer{% endblock %}
+{% block content %}
+{% if preview is none %}
+    <p>Nothing to review.</p>
+{% else %}
+<article>
+    <header>
+        <hgroup>
+            <h2>Review card {{ index }} of {{ total }}: {{ preview.face.name }}</h2>
+            <p>Routing: <strong>{{ preview.route }}</strong> · Proposed identity: <code>{{ preview.proposed_identity }}</code></p>
+        </hgroup>
+    </header>
+
+    {% if warnings %}
+    <section>
+        <h4>Warnings</h4>
+        <ul>
+        {% for w in warnings %}
+            <li><strong>{{ w.kind }}</strong> — {{ w.message }}</li>
+        {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    <section class="grid">
+        <div>
+            <h4>Parsed values</h4>
+            <dl>
+                <dt>card_type</dt><dd>{{ preview.face.super_type or "—" }}</dd>
+                <dt>card_subtype</dt><dd>{{ preview.face.sub_type or "—" }}</dd>
+                <dt>casting_cost</dt><dd>{{ preview.face.casting_cost or "—" }}</dd>
+                <dt>P/T</dt><dd>{{ preview.face.power or "—" }} / {{ preview.face.toughness or "—" }}</dd>
+                <dt>rarity</dt><dd>{{ preview.face.rarity or "—" }}</dd>
+                <dt>stylesheet</dt><dd>{{ preview.face.stylesheet or "—" }}</dd>
+                <dt>colors</dt><dd>{{ preview.colors|join(", ") or "—" }}</dd>
+                <dt>design_type (auto)</dt>
+                <dd>
+                    {% if preview.design_type.value %}{{ preview.design_type.value }}
+                    {% else %}<em>needs user input</em>{% endif %}
+                </dd>
+                <dt>keywords (refs)</dt><dd>{{ preview.face.keyword_refs|join(", ") or "—" }}</dd>
+                <dt>printed?</dt><dd>{{ "yes" if preview.face.notes.status_printed else "no" }}</dd>
+                <dt>related</dt><dd>{{ preview.face.related_from_notes|join(", ") or "—" }}</dd>
+            </dl>
+        </div>
+        <div>
+            <h4>Rule text</h4>
+            <pre style="white-space: pre-wrap;">{{ preview.face.rule_text or "—" }}</pre>
+            {% if preview.face.flavor_text %}
+                <h4>Flavor</h4>
+                <pre style="white-space: pre-wrap;"><em>{{ preview.face.flavor_text }}</em></pre>
+            {% endif %}
+        </div>
+    </section>
+
+    <form action="/review/{{ session.id }}/commit" method="post">
+        <section>
+            <h4>Decisions</h4>
+
+            {% set has_conflict = false %}
+            {% for w in warnings %}
+                {% if w.kind == "identity_conflict" %}{% set has_conflict = true %}{% endif %}
+            {% endfor %}
+
+            {% if has_conflict %}
+            <fieldset>
+                <legend>Identity conflict</legend>
+                <label><input type="radio" name="collision_resolution" value="update" checked> Update existing record</label>
+                <label><input type="radio" name="collision_resolution" value="alternate"> Add as alternate variant</label>
+                <label>
+                    <input type="radio" name="collision_resolution" value="rename">
+                    Save as <em>"{{ preview.proposed_identity }} 2"</em>
+                </label>
+                <label>Alternate-variant label
+                    <input name="alt_art_label" placeholder="e.g. commander alternate, 6x art">
+                </label>
+            </fieldset>
+            {% endif %}
+
+            <fieldset>
+                <legend>Override fields</legend>
+                {% if preview.design_type.needs_user %}
+                <label>Design type (required)
+                    <input name="design_type" required placeholder="e.g. Colorpushed-experimental">
+                </label>
+                {% else %}
+                <label>Design type
+                    <input name="design_type" value="{{ preview.design_type.value }}">
+                </label>
+                {% endif %}
+                <label>Rarity
+                    <input name="rarity" value="{{ preview.face.rarity or 'common' }}">
+                </label>
+                <label>Colors (comma-separated)
+                    <input name="colors" value="{{ preview.colors|join(', ') }}">
+                </label>
+            </fieldset>
+        </section>
+
+        <footer>
+            <div class="grid">
+                <button type="submit" name="action" value="accept">Accept &amp; next</button>
+                <button type="submit" name="action" value="reject" class="secondary">Reject &amp; log</button>
+            </div>
+        </footer>
+    </form>
+    <form action="/review/{{ session.id }}/discard" method="post" onsubmit="return confirm('Discard ingest session?')">
+        <button type="submit" class="contrast">Discard session</button>
+    </form>
+</article>
+{% endif %}
+{% endblock %}
