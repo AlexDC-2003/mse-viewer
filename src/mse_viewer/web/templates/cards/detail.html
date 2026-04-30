@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ card.name }} — mse-viewer{% endblock %}
+{% block content %}
+<article>
+    <header>
+        <hgroup>
+            <h2>{{ card.name }}</h2>
+            <p>{{ card.card_type }}{% if card.card_subtype %} — {{ card.card_subtype }}{% endif %}</p>
+        </hgroup>
+        {% if card.printed %}<small><strong>printed</strong></small>{% endif %}
+    </header>
+    <dl>
+        <dt>Display name</dt><dd>{{ card.display_name }}</dd>
+        <dt>Cost</dt><dd>{{ card.casting_cost | render_cost or "—" }}</dd>
+        <dt>Colors</dt><dd>{{ card.colors | render_colors }}</dd>
+        <dt>P/T</dt><dd>{{ card.power or "—" }} / {{ card.toughness or "—" }}</dd>
+        <dt>Rarity</dt><dd>{{ card.rarity }}</dd>
+        <dt>Power level</dt><dd>{{ card.power_level if card.power_level is not none else "—" }}</dd>
+        <dt>Design type</dt><dd>{{ card.design_type }}</dd>
+        <dt>Sets</dt><dd>{{ card.sets|join(", ") or "—" }}</dd>
+        <dt>Alt arts</dt><dd>{{ card.alt_arts|join(", ") or "—" }}</dd>
+        <dt>Related cards</dt><dd>{{ card.related_cards|join(", ") or "—" }}</dd>
+    </dl>
+    <h4>Rule text</h4>
+    {% if card.rule_text %}
+        <div class="rule-text">{{ card.rule_text | render_text }}</div>
+    {% else %}
+        <p>—</p>
+    {% endif %}
+    {% if card.flavor_text %}
+        <h4>Flavor</h4>
+        <div class="rule-text"><em>{{ card.flavor_text | render_text }}</em></div>
+    {% endif %}
+    {% if keywords %}
+    <h4>Keywords</h4>
+    <ul>
+        {% for kw in keywords %}
+        <li>
+            <a href="/keywords/{{ kw.id }}">{{ kw.name | render_match }}</a>
+            {% if kw.is_stub %}
+                {% if kw.reminder %}<small>(no definition yet)</small>
+                {% else %}<small>(stub)</small>{% endif %}
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% if card.notes %}
+        <h4>Notes</h4>
+        <pre style="white-space: pre-wrap;">{{ card.notes }}</pre>
+    {% endif %}
+</article>
+<a href="/cards" role="button" class="secondary">Back</a>
+{% endblock %}

@@ -1,0 +1,223 @@
+UI - upload screen  BUGS:
+
+1. Clicking anywhere near the file input (not just the button) will open the file selection module (aka an explorer tab to open your file). While this may be to allow file dragging functionality (which is genius and should be kept), if you accidentally press anywhere near the button you need to refind the file, as cancelling the input will also clear the current input file.
+This could be fixed by simply keeping the already inserted file when cancelling
+
+
+UI - parser review
+
+1. The parser doesn't properly parse the card_subtype.
+e.g.: Construct<soft><atom-sep> </atom-sep></soft>
+e.g. =Dragon<atom-sep> </atom-sep>Druid<soft><atom-sep> </atom-sep></soft>
+this is because the field in the input has some weirdness like this. Please just strip any trailing whitespaces at the end like this, and all tags from the card_subtype
+
+
+2. This is apparently a bug with the MSE itself, but for the base template, the rarity: field doesn't appear for common rarity. Please update the parser so that it autofills missing rarities with common.
+Weirdly, the decision override field for rarity defaults to common, so that seems to work. In the "parsed values" section of the UI just also show it as "Missing (Presumed common)" (just for that specific UI shot!!!)
+
+3. In the parsed values section, it says:
+Rule text
+—
+
+keywords (refs)
+—
+
+for cards that do have them
+
+edit: I actually found the culprit.
+This rules_text field got properly parsed:
+"rule_text: Each creature you control gets +2/+0 and gains <kw-a><nospellcheck><key>haste</key></nospellcheck></kw-a>. Draw a card."
+but this didn't:
+"rule_text:
+	Cast this spell only during your turn.
+	Take an extra turn after this one if an opponent cast a blue spell this turn."
+You clearly didn't account for stuff like this, subindents for the fields.
+Please revise all parsing fields to make sure they can handle stuff like this.
+
+
+4. I had a lot of reviews. Like, a ton. And most I didn't need to change whatsoever.
+Like, I had a card with this pop up, and I don't think it should, it's using templates that should auto-pass which i don't think should trigger a review:
+
+card:
+	stylesheet: m15-altered-beyond
+	stylesheet_version: 2020-09-04
+	has_styling: true
+	styling_data:
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	notes: 
+	time_created: 2025-05-16 01:14:52
+	time_modified: 2025-09-16 01:20:30
+	card_color: white, blue, hybrid, horizontal
+	name: Driad Dragon
+	casting_cost: 2WU
+	image: image10
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Creature</word-list-type-en>
+	sub_type: <word-list-race-en>Dragon</word-list-race-en><atom-sep> </atom-sep><word-list-class-en>Druid</word-list-class-en><soft><atom-sep> </atom-sep></soft><word-list-class-en></word-list-class-en>
+	rarity: rare
+	rule_text:
+		<kw-A><nospellcheck><key>Amphibious</key></nospellcheck><atom-reminder-custom> <i-auto>(This creature can’t be blocked except by creatures with amphibious or flying.)</i-auto></atom-reminder-custom></kw-A>
+		<kw-0><nospellcheck><key>Kicker <param-cost><sym-auto>2WU</sym-auto></param-cost></key></nospellcheck></kw-0>: Driad Dragon enters as a 4/4.
+		Permanents you control have <kw-0><nospellcheck><key>ward <param-cost><sym-auto>2</sym-auto></param-cost></key></nospellcheck></kw-0>. If Driad Dragon was kicked, they have <kw-0><nospellcheck><key>ward <param-cost><sym-auto>4</sym-auto></param-cost></key></nospellcheck></kw-0> instead.
+		Creatures you control have <kw-0><nospellcheck><key>absorb <param-number>2</param-number></key></nospellcheck></kw-0>. If Driad Dragon was kicked, they have <kw-0><nospellcheck><key>absorb <param-number>4</param-number></key></nospellcheck></kw-0> instead.
+	flavor_text: <i-flavor></i-flavor>
+	power: 2
+	toughness: 2
+	illustrator: .
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+
+or this
+
+card:
+	stylesheet: m15-altered
+	stylesheet_version: 2025-10-05
+	has_styling: true
+	styling_data:
+		frames: fnm promo
+		other_options: auto nyx crowns, pride pinlines
+		legend_crown: standard
+		hybrid_name: grey
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		promo: no
+		overlay: 
+	notes: 
+	time_created: 2025-10-05 17:05:02
+	time_modified: 2025-10-05 17:05:46
+	name: Obliterate
+	casting_cost: 6RR
+	image: 
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Sorcery</word-list-type-en>
+	sub_type: <word-list-spell></word-list-spell>
+	rarity: mythic rare
+	rule_text:
+		Obliterate can’t be countered.
+		Destroy all artifacts, creatures, lands.
+	flavor_text: <i-flavor></i-flavor>
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+
+
+Am I missing something? Is there something that should trigger a review based on my specification?
+
+5. Add this: for all stylesheets, ignore snow frames.
+This triggered a review:
+	stylesheet: m15-altered
+	stylesheet_version: 2025-10-05
+	has_styling: true
+	styling_data:
+		frames: fnm promo, snow
+		other_options: auto nyx crowns, pride pinlines
+		legend_crown: standard
+		hybrid_name: grey
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		promo: no
+		overlay: 
+
+from now on, please ensure it doesn't
+
+6. Can you please explain why this triggered a review?
+"card:
+	stylesheet: m15-altered-beyond
+	stylesheet_version: 2020-09-04
+	has_styling: true
+	styling_data:
+		chop_top: 
+		chop_bottom: 
+		frames: 
+		other_options: auto nyx crowns
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	notes: 
+	time_created: 2025-10-05 17:37:54
+	time_modified: 2026-02-28 00:33:58
+	card_color: white, blue, black, hybrid, horizontal
+	name: Clockwork Timework
+	casting_cost: 3WUB
+	image: 
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Creature</word-list-type-en>
+	sub_type: <word-list-race-en>Time</word-list-race-en><atom-sep> </atom-sep><word-list-class-en>Zombie</word-list-class-en><atom-sep> </atom-sep><word-list-class-en>Artificer</word-list-class-en><soft><atom-sep> </atom-sep></soft><word-list-class-en></word-list-class-en>
+	rarity: mythic rare
+	rule_text: <i>It’s Rewind Time</i> — Exile each other permanent on the battlefield. Each player’s life total becomes equal to the starting life total. End your turn.
+	flavor_text: <i-flavor></i-flavor>
+	power: 3
+	toughness: 3
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: "
+
+7. xxx
+
+8. For planeswalker cards, please add a "planeswalker parsing" todo to the next current phase, since parsing changes a lot for them
+- Also add a todo "emblem parsing"
+
+9. this is what warnings say for tokens:
+
+Warnings
+rarity_special — Rarity is 'special' — choose Cards or Tokens DB and a Design Type.
+token_routing — super_type contains 'Token' — confirm token routing & related cards.
+
+but I get no confirmation prompt to say? I can still only accept or reject like all others. Maybe reword the "confirmation" since I'm not confirming anything else (I don't get the "choose Cards or Tokens DB and a Design Type" option either, but ig this could be overridden by the token auto routing). And again, please don't trigger reviews for everything
+
+10. If I forget to introduce PWL (which are also tagged as "optional" and hidden on the UI without pressing on them), I get this and the UI breaks:
+
+{"detail":[{"type":"int_parsing","loc":["body","pwl_common"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":""},{"type":"int_parsing","loc":["body","pwl_uncommon"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":""},{"type":"int_parsing","loc":["body","pwl_rare"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":""},{"type":"int_parsing","loc":["body","pwl_mythic"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":""}]}
+
+Add reminders/checks like the other fields
+
+11. Rules text not stripped of tags:
+"Each creature you control gets +2/+0 and gains <kw-a><key>haste</key></kw-a>. Draw a card."
+"Shadow Boosted — Whenever Bruit Baby deals damage to a creature, create a Goo token, and attach them to that creature. Dragon Bruit has <key>toxicity <param-number>1</param-number></key>. (Players dealt damage by this creature also get <param-number>1</param-number> poison counter.)"
+
+"Bud’uh’Boom deals 1 damage to each tapped creature target opponent controls. Create and attach a Butter Bar token to each of those creatures. Roll a d6, then create that many Butter Puddle tokens. If you roll a </sym>1<sym>, create two Butter Puddle tokens instead."
+and many more
+
+Furthermore, Please make italic text in the rules text from <i> and <i-auto> tags stay italic in the UI an DB.
+If you need some to have some tags in the rules texts fields to facilitate UI, then fine, but try to strip all unnecessary tags pls
+
+12. {RW} should be made to {R}{W}. Each individual symbol <sym> that represents a mana should be made into its own scryfall-convention {} format
+
+13. Can't reject if you don't fill in fields such as Design type (required).
+I am rejecting, why would I need to fill it just to discard?
+
+14. Keywords:
+Match	Source	Params	Pseudo?	Stub?
+234<atom-param>name</atom-param>link	Creaturelink	name		
+Absorb <atom-param>number</atom-param>	Absorb	number		
+After strike	After Strike			
+Ammo <atom-param>number</atom-param>	Ammo (BD)	number		
+Amphibious	Amphibious			
+Antihero <atom-param>number</atom-param>	Antihero	number		
+Armor <atom-param>number</atom-param>	Armor Absorb	number
+
+Yeah see, you kept all the "atom-param" tags. Did you keep them so you can use them beautified in the UI?
+You know what, give me a full list of what tags should be kept, and if you have a reason to keep the tags to then beautify the UI, so be it. Don't do any modifications to tag stipping yet until we talk
+

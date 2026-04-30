@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}mse-viewer{% endblock %}
+{% block content %}
+<hgroup>
+    <h1>mse-viewer</h1>
+    <p>Companion DB for Magic Set Editor sets.</p>
+</hgroup>
+<section>
+    <p>
+        Start by <a href="/upload">uploading a set file</a>. The parser will pull cards
+        and keywords out, then walk you through any cards that need a decision.
+    </p>
+    <ul>
+        <li><a href="/cards">Browse cards</a></li>
+        <li><a href="/tokens">Browse tokens</a></li>
+        <li><a href="/keywords">Browse keywords</a></li>
+        <li><a href="/decks">Browse decks</a></li>
+        <li><a href="/log">Action log</a></li>
+    </ul>
+</section>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Tokens — mse-viewer{% endblock %}
+{% block content %}
+<h1>Tokens <small>({{ tokens|length }})</small></h1>
+<form action="/tokens" method="get">
+    <input name="q" value="{{ q }}" placeholder="Search by name…">
+    <button type="submit">Search</button>
+</form>
+{% if tokens %}
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Cost</th>
+            <th>Colors</th>
+            <th>P/T</th>
+            <th>Design</th>
+            <th>Sets</th>
+            <th>Alt arts</th>
+            <th>Rule text</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for t in tokens %}
+        <tr>
+            <td><a href="/tokens/{{ t.id }}">{{ t.name }}</a></td>
+            <td>{{ t.card_type }}{% if t.card_subtype %} — {{ t.card_subtype }}{% endif %}</td>
+            <td>{{ t.casting_cost | render_cost }}</td>
+            <td>{{ t.colors | render_colors }}</td>
+            <td>
+                {% if t.power or t.toughness %}{{ t.power or "" }}/{{ t.toughness or "" }}{% endif %}
+            </td>
+            <td>{{ t.design_type }}</td>
+            <td>{{ t.sets|join(", ") }}</td>
+            <td>{{ t.alt_arts|join(", ") }}</td>
+            <td><small>{{ t.rule_text | render_text_snippet }}</small></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No tokens yet.</p>
+{% endif %}
+{% endblock %}

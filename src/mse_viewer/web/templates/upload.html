@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Upload — mse-viewer{% endblock %}
+{% block content %}
+<h1>Upload a set file</h1>
+
+{% if error %}
+<article class="warn">
+    <strong>Could not start ingest:</strong> {{ error }}
+</article>
+{% endif %}
+
+<form action="/upload" method="post" enctype="multipart/form-data">
+    <fieldset>
+        <legend>Set metadata</legend>
+        <label>Set name
+            <input name="set_name" placeholder="e.g. New Capenna" required>
+        </label>
+        <fieldset>
+            <legend>Power-level defaults <small>(optional)</small></legend>
+            <div class="grid">
+                <label>Common <input type="number" name="pwl_common"></label>
+                <label>Uncommon <input type="number" name="pwl_uncommon"></label>
+                <label>Rare <input type="number" name="pwl_rare"></label>
+                <label>Mythic <input type="number" name="pwl_mythic"></label>
+            </div>
+        </fieldset>
+    </fieldset>
+    <fieldset>
+        <legend>Source</legend>
+        <div class="field">
+            <span class="field-label">Plaintext file (optional)</span>
+            <input type="file" name="file" accept=".txt,.set,.mse-set,*" id="set-file">
+            <small>Click the file picker only — clicking elsewhere won't reset your selection.</small>
+        </div>
+        <label>…or paste set text
+            <textarea name="pasted_text" rows="14" placeholder="Paste the contents of an MSE 'set' file here."></textarea>
+        </label>
+    </fieldset>
+    <button type="submit">Parse and review</button>
+</form>
+{% endblock %}

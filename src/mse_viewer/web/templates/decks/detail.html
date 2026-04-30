@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ deck.name }} — mse-viewer{% endblock %}
+{% block content %}
+<article>
+    <header><h2>{{ deck.name }}</h2></header>
+    <dl>
+        <dt>Format</dt><dd>{{ deck.format }}</dd>
+        <dt>Code</dt><dd>{{ deck.code or "—" }}</dd>
+        <dt>Theme</dt><dd>{{ deck.theme or "—" }}</dd>
+        <dt>Archetype</dt><dd>{{ deck.archetype or "—" }}</dd>
+        <dt>Size</dt><dd>{{ deck.size }}</dd>
+        <dt>Owners</dt><dd>{{ deck.owners|join(", ") or "—" }}</dd>
+        <dt>Colors</dt><dd>{{ deck.colors|join(", ") or "—" }}</dd>
+        <dt>Package</dt><dd>{{ deck.package or "—" }}</dd>
+    </dl>
+    <h4>Cards</h4>
+    {% if deck.cards %}
+    <table>
+        <thead><tr><th>Qty</th><th>Card</th></tr></thead>
+        <tbody>
+        {% for dc in deck.cards %}
+            <tr>
+                <td>{{ dc.quantity }}</td>
+                <td><a href="/cards/{{ dc.card.id }}">{{ dc.card.name }}</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>No cards in this deck.</p>
+    {% endif %}
+</article>
+<a href="/decks" role="button" class="secondary">Back</a>
+{% endblock %}

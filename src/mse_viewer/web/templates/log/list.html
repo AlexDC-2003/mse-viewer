@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Action / Notice log — mse-viewer{% endblock %}
+{% block content %}
+<h1>Log</h1>
+<form action="/log" method="get" class="grid">
+    <label>Kind
+        <select name="kind">
+            <option value="">all</option>
+            <option value="action" {% if filter_kind == "action" %}selected{% endif %}>action</option>
+            <option value="notice" {% if filter_kind == "notice" %}selected{% endif %}>notice</option>
+        </select>
+    </label>
+    <label>State
+        <select name="state">
+            <option value="">all</option>
+            <option value="open" {% if filter_state == "open" %}selected{% endif %}>open</option>
+            <option value="resolved" {% if filter_state == "resolved" %}selected{% endif %}>resolved</option>
+            <option value="unread" {% if filter_state == "unread" %}selected{% endif %}>unread</option>
+            <option value="standby" {% if filter_state == "standby" %}selected{% endif %}>standby</option>
+            <option value="issued" {% if filter_state == "issued" %}selected{% endif %}>issued</option>
+            <option value="completed" {% if filter_state == "completed" %}selected{% endif %}>completed</option>
+        </select>
+    </label>
+    <label>&nbsp;<button type="submit">Filter</button></label>
+</form>
+
+{% if entries %}
+<table>
+    <thead><tr><th>When</th><th>Kind</th><th>State</th><th>Title</th><th></th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+        <tr id="entry-{{ e.id }}">
+            <td><small>{{ e.created_at.strftime("%Y-%m-%d %H:%M") }}</small></td>
+            <td>{{ e.kind.value }}</td>
+            <td>{{ e.state.value }}</td>
+            <td>
+                <strong>{{ e.title }}</strong>
+                {% if e.body %}<br><small>{{ e.body }}</small>{% endif %}
+            </td>
+            <td>
+                {% if e.state.value == "open" %}
+                    <form action="/log/{{ e.id }}/resolve" method="post" style="display:inline">
+                        <button type="submit">Resolve</button>
+                    </form>
+                {% elif e.state.value == "resolved" %}
+                    <form action="/log/{{ e.id }}/reopen" method="post" style="display:inline">
+                        <button type="submit" class="secondary">Reopen</button>
+                    </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+    <p>No log entries.</p>
+{% endif %}
+
+<details>
+    <summary>Add a manual log entry</summary>
+    <form action="/log" method="post">
+        <label>Title <input name="title" required></label>
+        <label>Body <textarea name="body" rows="3"></textarea></label>
+        <button type="submit">Add</button>
+    </form>
+</details>
+{% endblock %}

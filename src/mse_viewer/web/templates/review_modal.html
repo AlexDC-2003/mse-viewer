@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Review — mse-viewer{% endblock %}
+{% block content %}
+{% if preview is none %}
+    <p>Nothing to review.</p>
+{% else %}
+<article>
+    <header>
+        <hgroup>
+            <h2>Review card {{ index }} of {{ total }}: {{ preview.face.name }}</h2>
+            <p>Routing: <strong>{{ preview.route }}</strong> · Proposed identity: <code>{{ preview.proposed_identity }}</code></p>
+        </hgroup>
+    </header>
+
+    {% if warnings %}
+    <section>
+        <h4>Warnings</h4>
+        <ul>
+        {% for w in warnings %}
+            <li><strong>{{ w.kind }}</strong> — {{ w.message }}</li>
+        {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    <section class="grid">
+        <div>
+            <h4>Parsed values</h4>
+            <dl>
+                <dt>card_type</dt><dd>{{ preview.face.super_type or "—" }}</dd>
+                <dt>card_subtype</dt><dd>{{ preview.face.sub_type or "—" }}</dd>
+                <dt>casting_cost</dt><dd>{{ preview.face.casting_cost | render_cost or "—" }}</dd>
+                <dt>P/T</dt><dd>{{ preview.face.power or "—" }} / {{ preview.face.toughness or "—" }}</dd>
+                <dt>rarity</dt>
+                <dd>
+                    {% if preview.face.rarity_missing %}
+                        <span class="missing">Missing (Presumed common)</span>
+                    {% else %}
+                        {{ preview.face.rarity }}
+                    {% endif %}
+                </dd>
+                <dt>stylesheet</dt><dd>{{ preview.face.stylesheet or "—" }}</dd>
+                <dt>colors</dt><dd>{{ preview.colors | render_colors }}</dd>
+                <dt>design_type (auto)</dt>
+                <dd>
+                    {% if preview.design_type.value %}{{ preview.design_type.value }}
+                    {% else %}<em>needs user input</em>{% endif %}
+                </dd>
+                <dt>keywords (refs)</dt>
+                <dd>
+                    {% if preview.face.keyword_refs %}
+                        {% for ref in preview.face.keyword_refs %}{{ ref|capitalize }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    {% else %}—{% endif %}
+                </dd>
+                <dt>printed?</dt><dd>{{ "yes" if preview.face.notes.status_printed else "no" }}</dd>
+                <dt>related</dt><dd>{{ preview.face.related_from_notes|join(", ") or "—" }}</dd>
+            </dl>
+        </div>
+        <div>
+            <h4>Rule text</h4>
+            <div class="rule-text">{{ preview.face.rule_text | render_text }}</div>
+            {% if preview.face.flavor_text %}
+                <h4>Flavor</h4>
+                <div class="rule-text"><em>{{ preview.face.flavor_text | render_text }}</em></div>
+            {% endif %}
+        </div>
+    </section>
+
+    <form action="/review/{{ session.id }}/commit" method="post">
+        <section>
+            <h4>Decisions</h4>
+
+            {% set ns = namespace(has_conflict=false, has_rarity_special=false) %}
+            {% for w in warnings %}
+                {% if w.kind == "identity_conflict" %}{% set ns.has_conflict = true %}{% endif %}
+                {% if w.kind == "rarity_special" %}{% set ns.has_rarity_special = true %}{% endif %}
+            {% endfor %}
+
+            {% if ns.has_rarity_special %}
+            <fieldset>
+                <legend>Rarity is 'special' — choose database</legend>
+                <label><input type="radio" name="route_override" value="card" checked> Save in Cards DB</label>
+                <label><input type="radio" name="route_override" value="token"> Save in Tokens DB</label>
+            </fieldset>
+            {% endif %}
+
+            {% if ns.has_conflict %}
+            <fieldset>
+                <legend>Identity conflict</legend>
+                <label><input type="radio" name="collision_resolution" value="update" checked> Update existing record</label>
+                <label><input type="radio" name="collision_resolution" value="alternate"> Add as alternate variant</label>
+                <label>
+                    <input type="radio" name="collision_resolution" value="rename">
+                    Save as <em>"{{ preview.proposed_identity }} 2"</em>
+                </label>
+                <label>Alternate-variant label
+                    <input name="alt_art_label" placeholder="e.g. commander alternate, 6x art">
+                </label>
+            </fieldset>
+            {% endif %}
+
+            <fieldset>
+                <legend>Override fields</legend>
+                {% if preview.design_type.needs_user %}
+                <label>Design type (required to accept)
+                    <input name="design_type" required placeholder="e.g. Colorpushed-experimental">
+                </label>
+                {% else %}
+                <label>Design type
+                    <input name="design_type" value="{{ preview.design_type.value }}">
+                </label>
+                {% endif %}
+                <label>Rarity
+                    <input name="rarity" value="{{ preview.face.rarity or 'common' }}">
+                </label>
+                <label>Colors (comma-separated)
+                    <input name="colors" value="{{ preview.colors|join(', ') }}">
+                </label>
+            </fieldset>
+        </section>
+
+        <footer>
+            <div class="grid">
+                <button type="submit" name="action" value="accept">Accept &amp; next</button>
+                <button type="submit" name="action" value="reject" class="secondary" formnovalidate>Reject &amp; log</button>
+            </div>
+        </footer>
+    </form>
+    <form action="/review/{{ session.id }}/discard" method="post" onsubmit="return confirm('Discard ingest session?')">
+        <button type="submit" class="contrast">Discard session</button>
+    </form>
+</article>
+{% endif %}
+{% endblock %}

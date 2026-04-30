@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}mse-viewer{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="container">
+        <nav>
+            <ul>
+                <li><strong><a href="/">mse-viewer</a></strong></li>
+            </ul>
+            <ul>
+                <li><a href="/upload">Upload</a></li>
+                <li><a href="/cards">Cards</a></li>
+                <li><a href="/tokens">Tokens</a></li>
+                <li><a href="/keywords">Keywords</a></li>
+                <li><a href="/decks">Decks</a></li>
+                <li><a href="/log">Log</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

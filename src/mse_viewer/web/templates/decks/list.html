@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Decks — mse-viewer{% endblock %}
+{% block content %}
+<h1>Decks</h1>
+{% if decks %}
+<table>
+    <thead><tr><th>Name</th><th>Format</th><th>Theme</th><th>Archetype</th><th>Size</th></tr></thead>
+    <tbody>
+    {% for d in decks %}
+        <tr>
+            <td><a href="/decks/{{ d.id }}">{{ d.name }}</a></td>
+            <td>{{ d.format }}</td>
+            <td>{{ d.theme or "—" }}</td>
+            <td>{{ d.archetype or "—" }}</td>
+            <td>{{ d.size }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No decks yet. Deck ingest UI is not in Phase 1.</p>
+{% endif %}
+{% endblock %}

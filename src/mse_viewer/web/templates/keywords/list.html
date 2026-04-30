@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Keywords — mse-viewer{% endblock %}
+{% block content %}
+<h1>Keywords <small>({{ keywords|length }})</small></h1>
+{% if keywords %}
+<table>
+    <thead><tr><th>Match</th><th>Source</th><th>Params</th><th>Pseudo?</th><th>Stub?</th></tr></thead>
+    <tbody>
+    {% for k in keywords %}
+        <tr>
+            <td><a href="/keywords/{{ k.id }}">{{ k.name | render_match }}</a></td>
+            <td>{{ k.source_keyword_field or "—" }}</td>
+            <td>{{ k.accepted_parameters|join(", ") }}</td>
+            <td>{{ "yes" if k.pseudo_keyword else "" }}</td>
+            <td>{{ "yes" if k.is_stub else "" }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No keywords yet.</p>
+{% endif %}
+{% endblock %}

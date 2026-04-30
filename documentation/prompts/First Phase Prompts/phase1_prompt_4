@@ -1,0 +1,104 @@
+1. Duplicate keyword references
+First strike, reach, Outrange, first strike, flying from this:
+"First strike, reach
+Outrange — This deals combat damage before creatures that would deal first strike damage.
+Whenever Elite Musketeer blocks or becomes blocked by a creature without flying and that cannot deal first strike damage, it may lose Outrange and first strike, and deal double damage to that creature until end of combat."
+They are also duplicated in the db
+
+2. "Warnings
+rarity_special — Rarity is 'special' — choose Cards or Tokens DB."
+I still have nowhere the option to choose on the screen
+
+3. Add "saga parsing" to todos for next phase
+Add "Leyline parsing" as well
+
+4. Now the cards look good, but the table UI does not show all the fields??? how am I supposed to check if it's right?
+
+5. When printing costs with / such as G/UG/U, please put them in (), like (G/U)(G/U)
+
+6. Talk: in the card's rules text: "Double strike<atom-reminder-core> (This creature deals both first-strike and regular combat damage.)</atom-reminder-core>"
+Why is the tag there? Do you intend to keep it for UI beautification?
+
+or here:
+Rule text
+Ninjutsu {B}{R}<atom-reminder-expert> ({B}{R}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)</atom-reminder-expert>
+
+7. Also, you made keywords case-sensitive
+so "strikethough" is found as a keyword, but not linked to "Strikethrough". The default should be capitalization on
+
+8. For the keywords, change the "Rules" field name to "Notes"
+
+9. Additionally, keywords like "Splash 2" are not connected to the "Splash" keyword.
+This is because:
+
+10. You fundamentally misunderstood how I want you to store keywords.
+
+11. Flavour text has tags in it, such as:
+Sweetness fuels strength. <soft-line>
+</soft-line>Tartness fuels fury.
+can you please remove all tags from flavour text? I don't think it matters for this.
+
+Also:  "If you roll a </sym>1<sym>" in rules text <- this is kept. Reason for UI?
+
+Also: "Furnace can’t have stun counte<param-*s>rs</param-*s>." I'm like 90% sure this tag can be removed from the rules text, just keep the text, this tag is kinda useless and only does something with plurality detection.
+
+Yeah, for all param-*s tags, remove them and just keep the letters: "Gold toke<param-*s>n</param-*s>" should just be "Gold token"
+
+12. "
+Colors
+—"
+
+if no colors, can you say "colorless" please, not just "-"
+
+
+Anyways, most of it works. One question I have is, maybe somehow keep track of all stubs, either Related Cards or keywords, because how would you know to update the cards with stubs without going through the entire db once you add the definition of the stub or input a file that has the stub definition?
+
+So, regarding "10. You fundamentally misunderstood how I want you to store keywords."
+I will show you right now what's in my db, ok?
+
+Match	Source	Params	Pseudo?	Stub?
+234<atom-param>name</atom-param>link	Creaturelink	name		
+a bonus attack	a bonus attack			yes
+absorb 1	absorb 1			yes
+absorb 2	absorb 2			yes
+absorb 4	absorb 4			yes
+Absorb <atom-param>number</atom-param>	Absorb	number		
+After strike	After Strike			
+Ammo <atom-param>number</atom-param>	Ammo (BD)	number		
+amphibious	amphibious			yes
+Amphibious	Amphibious			
+Antihero 2	Antihero 2			yes
+Antihero <atom-param>number</atom-param>	Antihero	number		
+<atom-param>one_word</atom-param> Bonus Attac<atom-param>*s</atom-param>	Bonus Attack	one_word, *s		
+barrage 1	barrage 1			yes
+barrage 2	barrage 2			yes
+barrage 3	barrage 3			yes
+barrage 4	barrage 4			yes
+Barrage <atom-param>number</atom-param>	Gatling Gun	number		
+barrage X	barrage X			yes
+become the monarch	become the monarch			yes
+Cleave 1RR	Cleave 1RR			yes
+Cleave 4BB	Cleave 4BB			yes
+Cleave <atom-param>cost</atom-param>	Cleave	cost	
+Food tokens	Food tokens			yes
+ward 2	ward 2			yes
+Ward 3	Ward 3			yes
+ward 4	ward 4			yes
+Warding <atom-param>cost</atom-param>	Warding	cost		
+Ward—sacrifice a permanent and pay 5 life.	Ward—sacrifice a permanent and pay 5 life.			yes
+
+Notice something? You made each variation of a keyword its own thing. This is not what I wanted.
+I wanted you to differentiate between "Suspend <cost>" and "Suspend <number> - <cost>". Not "Suspend 5" and "Suspend 3".
+I think these are caused because, when the card stubs are created, they literally check for a keyword like "barrage 3" (which anyways has the capitalization issue), doesn't find it, so it creates a stub. But Barrage eventually gets put into the db, so now the Barrage 3 reference should connect to the "Barrage <atom-param>number</atom-param>" keyword.
+This is again, the question of how do stubs ever get updated. But also another thing, from now on please parse all the keywords from the "keyword:" fields at the end of the file first, then all the cards, so the stubs are at least less likely to appear. And again, when referencing Keywords, strip params, "barrage 3" and "barrage 2" should point to the same Barrage <number> keyword.
+Also, why still keep "<atom-param> </atom-param>" tags? Do you need them for UI? At least whenever you print them in the UI, replace "<atom-param> </atom-param>" with "< >", so something like "Barrage <atom-param>number</atom-param>" becomes "Barrage <number>"
+Also, for stuff like "Gold toke<param-*s>n</param-*s>", where I told to just get rid of the <param-*s>, please by default make the keyword as the ssingular version, and refer plural versions to it. So stuff like "Food tokens" appear as "Food token". Also, capitalization - "Food Token"
+
+
+
+
+
+
+
+
+
