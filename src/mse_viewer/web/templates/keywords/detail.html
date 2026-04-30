@@ -2,17 +2,18 @@
 {% block title %}{{ keyword.name }} — mse-viewer{% endblock %}
 {% block content %}
 <article>
-    <header><h2>{{ keyword.name }}</h2></header>
+    <header><h2>{{ keyword.name | render_match }}</h2></header>
     <dl>
+        <dt>Raw match</dt><dd><code>{{ keyword.name }}</code></dd>
         <dt>Source keyword field</dt><dd>{{ keyword.source_keyword_field or "—" }}</dd>
         <dt>Accepted parameters</dt><dd>{{ keyword.accepted_parameters|join(", ") or "—" }}</dd>
         <dt>Pseudo</dt><dd>{{ "yes" if keyword.pseudo_keyword else "no" }}</dd>
         <dt>Stub</dt><dd>{{ "yes" if keyword.is_stub else "no" }}</dd>
     </dl>
     <h4>Reminder</h4>
-    <pre style="white-space: pre-wrap;">{{ keyword.reminder or "—" }}</pre>
-    <h4>Rules</h4>
-    <pre style="white-space: pre-wrap;">{{ keyword.rules or "—" }}</pre>
+    <div class="rule-text">{{ keyword.reminder | render_text or "—" }}</div>
+    <h4>Notes</h4>
+    <div class="rule-text">{{ keyword.rules | render_text or "—" }}</div>
 </article>
 <a href="/keywords" role="button" class="secondary">Back</a>
 {% endblock %}

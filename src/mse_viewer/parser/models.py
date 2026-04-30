@@ -30,6 +30,7 @@ class ParsedCardFace(BaseModel):
     super_type: str = ""              # joined type chain, with tags stripped
     sub_type: str | None = None
     rarity: str | None = None
+    rarity_missing: bool = False  # True if MSE didn't emit a rarity: line; we autofilled
     casting_cost: str | None = None
     indicator: str | None = None
     extra_data: dict[str, str] = Field(default_factory=dict)

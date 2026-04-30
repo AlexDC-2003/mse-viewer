@@ -34,6 +34,7 @@ class FacePreview:
     rejected: bool = False
     accept_as_alternate_label: str | None = None
     collision_resolution: str | None = None  # "update" | "alternate" | "rename" | "cancel"
+    route_override: Route | None = None       # Cards/Tokens picker (rarity: special)
 
 
 def build_preview(
@@ -46,24 +47,21 @@ def build_preview(
 ) -> FacePreview:
     warnings = WarningCollector()
 
-    # Routing first — token namespace is independent of cards.
+    # Routing first — token namespace is independent of cards. Token routing is
+    # automatic (super_type contains Token) and does NOT require user
+    # confirmation, so it doesn't generate a warning by itself.
     super_type_has_token = is_token_route(face)
+    route: Route = "token" if super_type_has_token else "card"
 
-    # Rarity: special is asked-about (warning), but defaults to Cards DB.
+    # Rarity 'special' only needs a DB choice when the super_type didn't
+    # already nail routing down for us; otherwise the Token routing wins
+    # silently and we just need the design_type from the modal (handled below).
     rarity = (face.rarity or "").strip().lower()
-    if rarity == "special":
+    if rarity == "special" and not super_type_has_token:
         warnings.add(
             WarningKind.rarity_special,
-            "Rarity is 'special' — choose Cards or Tokens DB and a Design Type.",
+            "Rarity is 'special' — choose Cards or Tokens DB.",
         )
-
-    if super_type_has_token:
-        warnings.add(
-            WarningKind.token_routing,
-            "super_type contains 'Token' — confirm token routing & related cards.",
-        )
-
-    route: Route = "token" if super_type_has_token else "card"
 
     proposed_identity = compute_identity(
         display_name=face.name,
@@ -77,13 +75,6 @@ def build_preview(
             WarningKind.identity_conflict,
             f"A {route} named {proposed_identity!r} already exists.",
             existing_identity=proposed_identity,
-        )
-
-    # Notes-driven short-circuit.
-    if face.notes.do_not_read:
-        warnings.add(
-            WarningKind.do_not_read,
-            "'Do Not Read' marker — card will be skipped and logged.",
         )
 
     # Color derivation (pure).

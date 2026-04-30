@@ -24,10 +24,10 @@ async def upload_submit(
     file: UploadFile | None = None,
     pasted_text: str = Form(""),
     set_name: str = Form(...),
-    pwl_common: int | None = Form(None),
-    pwl_uncommon: int | None = Form(None),
-    pwl_rare: int | None = Form(None),
-    pwl_mythic: int | None = Form(None),
+    pwl_common: str = Form(""),
+    pwl_uncommon: str = Form(""),
+    pwl_rare: str = Form(""),
+    pwl_mythic: str = Form(""),
     db: Session = Depends(get_db),
     store: IngestSessionStore = Depends(get_session_store),
 ):
@@ -54,16 +54,32 @@ async def upload_submit(
     if parsed.header.set_name and not set_name.strip():
         set_name = parsed.header.set_name
 
-    pwl_defaults = {
-        k: v
-        for k, v in (
-            ("common", pwl_common),
-            ("uncommon", pwl_uncommon),
-            ("rare", pwl_rare),
-            ("mythic", pwl_mythic),
+    pwl_inputs = (
+        ("common", pwl_common),
+        ("uncommon", pwl_uncommon),
+        ("rare", pwl_rare),
+        ("mythic", pwl_mythic),
+    )
+    pwl_defaults: dict[str, int] = {}
+    bad: list[str] = []
+    for key, raw_value in pwl_inputs:
+        v = (raw_value or "").strip()
+        if not v:
+            continue
+        try:
+            pwl_defaults[key] = int(v)
+        except ValueError:
+            bad.append(key)
+    if bad:
+        return templates.TemplateResponse(
+            request,
+            "upload.html",
+            {
+                "request": request,
+                "error": f"Power-level field(s) must be integers (or left blank): {', '.join(bad)}.",
+            },
+            status_code=400,
         )
-        if v is not None
-    }
 
     repos = IngestRepos(db)
     session = store.create(

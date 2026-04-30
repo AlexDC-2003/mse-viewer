@@ -85,16 +85,12 @@ def build_tree(lines: list[Line]) -> MseNode:
         node = MseNode(key=line.key, value=line.value)
         parent.children.append(node)
 
-        # If this is a block (no inline value), push as new parent.
-        # If it has an inline value, also push so deeper-indented continuation
-        # lines can join the value.
+        # Always allow continuation accumulation: deeper-indented value-only
+        # lines join the node's value, deeper-indented keyed lines become
+        # children (and the empty pending_text flushes to a no-op).
         stack.append((line.indent, node))
-        if line.value == "":
-            pending_text = None
-            pending_node = None
-        else:
-            pending_text = []
-            pending_node = node
+        pending_text = []
+        pending_node = node
 
     flush_pending()
     return root

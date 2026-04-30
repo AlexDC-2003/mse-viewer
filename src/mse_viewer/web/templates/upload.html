@@ -27,9 +27,11 @@
     </fieldset>
     <fieldset>
         <legend>Source</legend>
-        <label>Plaintext file (optional)
-            <input type="file" name="file" accept=".txt,.set,.mse-set,*">
-        </label>
+        <div class="field">
+            <span class="field-label">Plaintext file (optional)</span>
+            <input type="file" name="file" accept=".txt,.set,.mse-set,*" id="set-file">
+            <small>Click the file picker only — clicking elsewhere won't reset your selection.</small>
+        </div>
         <label>…or paste set text
             <textarea name="pasted_text" rows="14" placeholder="Paste the contents of an MSE 'set' file here."></textarea>
         </label>

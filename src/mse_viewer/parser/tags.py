@@ -4,6 +4,15 @@ Most of MSE's text fields contain XML-like tags such as ``<sym-auto>W</sym-auto>
 or ``<word-list-type>Creature</word-list-type>``.  This module exposes pure
 helpers that strip the tags or convert them to canonical forms suitable for
 storage / display.
+
+Storage policy (Phase 1):
+  - mana symbols  → Scryfall braces, one ``{...}`` per atomic slot.
+  - keyword wrappers (``<kw-N>``, ``<key>``, ``<atom-param>``, ``<param-*>``) →
+    inner text preserved, wrappers stripped.
+  - word lists, ``<nospellcheck>``, ``<atom-sep>``, ``<soft>``,
+    ``<atom-reminder*>`` → wrappers stripped, inner text kept.
+  - italics (``<i>``, ``<i-auto>``, ``<i-flavor>``) → normalized to a single
+    ``<i>...</i>`` tag, preserved in the DB and re-rendered in the UI.
 """
 from __future__ import annotations
 
@@ -13,34 +22,83 @@ import re
 # Mana symbols
 # ---------------------------------------------------------------------------
 
-# Capture <sym>X</sym> and <sym-auto>X</sym-auto>.
 _RE_SYM = re.compile(r"<sym(?:-auto)?>([^<]*)</sym(?:-auto)?>", re.IGNORECASE)
 
-_HYBRID_DELIMS = re.compile(r"[/]")
+# Letters MSE uses for mana colors (incl. the brewer/extended palette from
+# init_prompt_2 §3.1) plus generic markers (X, Y, Z), tap (T), phyrexian (P).
+_MANA_LETTERS = set("WUBRGOKPELN" + "WUBRG" + "XYZTSP")
 
 
-def _to_scryfall_token(token: str) -> str:
-    """Convert a single mana token (e.g. ``W``, ``2/W``, ``X``) to Scryfall form ``{W}``."""
-    token = token.strip()
-    if not token:
-        return ""
-    if "/" in token:
-        # hybrid like "2/W" or "G/U"
-        parts = [p.strip() for p in _HYBRID_DELIMS.split(token) if p.strip()]
-        return "{" + "/".join(parts) + "}"
-    return "{" + token + "}"
+def _tokenize_mana_string(s: str) -> list[str]:
+    """Split a raw MSE mana token string into atomic Scryfall slots.
+
+    Examples:
+        ``"RW"`` → ``["R", "W"]``
+        ``"2WU"`` → ``["2", "W", "U"]``
+        ``"2/W"`` → ``["2/W"]`` (hybrid kept together)
+        ``"2/W2/U"`` → ``["2/W", "2/U"]`` (two hybrid slots)
+        ``"3"`` → ``["3"]``
+        ``"X"`` → ``["X"]``
+    """
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if ch.isspace():
+            i += 1
+            continue
+        # Read one atomic part: a digit run OR a single letter.
+        if ch.isdigit():
+            j = i
+            while j < n and s[j].isdigit():
+                j += 1
+            part = s[i:j]
+            i = j
+        elif ch.isalpha():
+            part = ch.upper()
+            i += 1
+        else:
+            # Skip punctuation we don't recognize.
+            i += 1
+            continue
+        # Check for hybrid extensions (slash-separated).
+        parts = [part]
+        while i < n and s[i] == "/":
+            i += 1
+            if i >= n:
+                break
+            if s[i].isdigit():
+                j = i
+                while j < n and s[j].isdigit():
+                    j += 1
+                parts.append(s[i:j])
+                i = j
+            elif s[i].isalpha():
+                parts.append(s[i].upper())
+                i += 1
+            else:
+                break
+        out.append("/".join(parts))
+    return out
 
 
 def normalize_mana_symbols(text: str) -> str:
-    """Replace ``<sym>X</sym>`` / ``<sym-auto>X</sym-auto>`` with ``{X}``."""
-    return _RE_SYM.sub(lambda m: _to_scryfall_token(m.group(1)), text)
+    """Replace ``<sym>X</sym>`` / ``<sym-auto>X</sym-auto>`` with ``{X}{Y}...``.
+
+    Each atomic mana slot becomes its own ``{...}`` (init_prompt_3 #12).
+    """
+    def _repl(m: re.Match[str]) -> str:
+        tokens = _tokenize_mana_string(m.group(1))
+        return "".join(f"{{{t}}}" for t in tokens) if tokens else ""
+    return _RE_SYM.sub(_repl, text)
 
 
 # ---------------------------------------------------------------------------
-# Word-list tags
+# Word-list tags  →  strip wrapper, keep inner.
 # ---------------------------------------------------------------------------
 
-_RE_WORD_LIST = re.compile(r"<word-list-[^>]+>|</word-list-[^>]+>", re.IGNORECASE)
+_RE_WORD_LIST = re.compile(r"</?word-list-[^>]*>", re.IGNORECASE)
 
 
 def strip_word_lists(text: str) -> str:
@@ -48,87 +106,211 @@ def strip_word_lists(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Italics / soft / nospellcheck — strip the wrappers, keep inner text.
+# Italic tags  →  normalize all variants to <i>...</i>.
 # ---------------------------------------------------------------------------
 
-_RE_GENERIC_TAG = re.compile(
-    r"</?(?:i-flavor|i-auto|i|b|nospellcheck|soft|atom-sep|atom-reminder|atom-reminder-custom)>",
+_RE_ITALIC_OPEN = re.compile(r"<(i-flavor|i-auto|i)>", re.IGNORECASE)
+_RE_ITALIC_CLOSE = re.compile(r"</(i-flavor|i-auto|i)>", re.IGNORECASE)
+
+
+def normalize_italics(text: str) -> str:
+    text = _RE_ITALIC_OPEN.sub("<i>", text)
+    text = _RE_ITALIC_CLOSE.sub("</i>", text)
+    # Drop empty `<i></i>` pairs (MSE often emits them for missing flavor).
+    return re.sub(r"<i>\s*</i>", "", text)
+
+
+# ---------------------------------------------------------------------------
+# "Wrapper" tags whose content we keep verbatim.
+#
+#   <nospellcheck>   <atom-sep>   <atom-reminder>   <atom-reminder-custom>
+#   <soft>           <b>          <key>             <atom-param>
+#   <param-name>     <param-cost> <param-number>    <param-text>
+#
+# Note: <kw-N>...</kw-N> is handled separately because we extract the keyword
+# reference before discarding the wrapper.
+# ---------------------------------------------------------------------------
+
+# Plain-name wrappers we discard (keep inner text).
+_WRAPPER_TAGS_FIXED = (
+    "nospellcheck", "soft", "soft-line", "b",
+    "key", "atom-param", "param-name", "param-cost", "param-number", "param-text",
+)
+_RE_WRAPPER_FIXED = re.compile(
+    r"</?(?:" + "|".join(_WRAPPER_TAGS_FIXED) + r")(?:\s[^>]*)?>",
     re.IGNORECASE,
 )
+# Wildcard families:
+#   <atom-sep>, <atom-sep-XYZ>
+#   <atom-reminder>, <atom-reminder-core>, <atom-reminder-expert>, <atom-reminder-custom>
+#   <param-*s>, <param-*es>, <param-something-else> (plurality/inflection markers)
+_RE_ATOM_SEP_FAMILY = re.compile(r"</?atom-sep(?:-[^>\s]+)?(?:\s[^>]*)?>", re.IGNORECASE)
+_RE_ATOM_REMINDER_FAMILY = re.compile(r"</?atom-reminder(?:-[^>\s]+)?(?:\s[^>]*)?>", re.IGNORECASE)
+_RE_PARAM_FAMILY = re.compile(r"</?param-[^>\s]+(?:\s[^>]*)?>", re.IGNORECASE)
+# Anything else that survived (and isn't an italic / bold we explicitly preserve).
+_RE_STRAY_SYM = re.compile(r"</?sym(?:-[^>\s]+)?(?:\s[^>]*)?>", re.IGNORECASE)
 
 
-def strip_simple_tags(text: str) -> str:
-    return _RE_GENERIC_TAG.sub("", text)
+def strip_wrapper_tags(text: str) -> str:
+    text = _RE_WRAPPER_FIXED.sub("", text)
+    text = _RE_ATOM_SEP_FAMILY.sub("", text)
+    text = _RE_ATOM_REMINDER_FAMILY.sub("", text)
+    text = _RE_PARAM_FAMILY.sub("", text)
+    return text
 
 
 # ---------------------------------------------------------------------------
 # Keyword extraction.
+#
+# kw IDs in the wild include digits AND letters (e.g. ``<kw-A>``, ``<kw-a>``,
+# ``<kw-0>``).  The backreference + IGNORECASE flag handles ``<kw-A>...</kw-a>``
+# correctly.
 # ---------------------------------------------------------------------------
 
-# Capture everything inside <kw-N>...</kw-N>.  N is one or more digits.
-_RE_KW_BLOCK = re.compile(r"<kw-(\d+)>(.*?)</kw-\1>", re.IGNORECASE | re.DOTALL)
-# Inside a kw block: <key>NAME</key>
-_RE_KEY = re.compile(r"<key>([^<]+)</key>", re.IGNORECASE)
-# Inside a kw block: <atom-param>VALUE</atom-param>
+_RE_KW_BLOCK = re.compile(
+    r"<kw-([a-zA-Z0-9]+)>(.*?)</kw-\1>",
+    re.IGNORECASE | re.DOTALL,
+)
+_RE_KEY = re.compile(r"<key>(.*?)</key>", re.IGNORECASE | re.DOTALL)
 _RE_ATOM_PARAM = re.compile(r"<atom-param>([^<]*)</atom-param>", re.IGNORECASE)
 
 
 def iter_keyword_invocations(text: str) -> list[tuple[str, list[str]]]:
-    """Return every ``<kw-N>...`` invocation as ``(key_text, [param_values])``.
+    """Return every keyword invocation as ``(key_text, [param_values])``.
 
-    ``key_text`` is the literal text inside the embedded ``<key>...</key>`` tag,
-    which is the keyword's display name (e.g. ``Suspend``).  This is what we use
-    to look up keyword records when the card's reference is by name.
+    Captures both ``<kw-N>...<key>X</key>...</kw-N>`` blocks AND standalone
+    ``<key>X</key>`` references that appear in body text without a kw wrapper
+    (e.g. *"has <key>toxicity <param-number>1</param-number></key>"*).
     """
     out: list[tuple[str, list[str]]] = []
+    seen_spans: list[tuple[int, int]] = []
+
     for m in _RE_KW_BLOCK.finditer(text):
         body = m.group(2)
         key_match = _RE_KEY.search(body)
         if not key_match:
             continue
         params = [p.group(1) for p in _RE_ATOM_PARAM.finditer(body)]
-        out.append((key_match.group(1).strip(), params))
+        out.append((_clean_key_text(key_match.group(1)), params))
+        seen_spans.append(m.span())
+
+    for m in _RE_KEY.finditer(text):
+        # Skip occurrences already captured inside a <kw-N> block.
+        if any(s <= m.start() < e for s, e in seen_spans):
+            continue
+        out.append((_clean_key_text(m.group(1)), []))
+
     return out
 
 
+def _clean_key_text(s: str) -> str:
+    """The ``<key>`` body sometimes contains ``<param-*>`` children — discard
+    those for the *reference name* (it's just the keyword name)."""
+    s = re.sub(r"<[^>]+>", "", s)
+    return s.strip()
+
+
 def strip_keyword_wrappers(text: str) -> str:
-    """Remove the ``<kw-N>`` / ``</kw-N>`` and ``<key>...</key>`` wrappers, leaving the
-    visible text intact.  Atom-params are kept literally."""
-    text = _RE_KW_BLOCK.sub(lambda m: _kw_visible(m.group(2)), text)
-    return text
-
-
-def _kw_visible(body: str) -> str:
-    body = _RE_KEY.sub(lambda m: m.group(1), body)
-    body = _RE_ATOM_PARAM.sub(lambda m: m.group(1), body)
-    return body
+    """Replace ``<kw-N>...</kw-N>`` with the body's visible text."""
+    return _RE_KW_BLOCK.sub(lambda m: m.group(2), text)
 
 
 # ---------------------------------------------------------------------------
-# All-in-one canonicalization for rule_text storage.
+# All-in-one canonicalization for stored ``rule_text`` / ``flavor_text``.
 # ---------------------------------------------------------------------------
 
 
 def canonicalize_text(text: str) -> str:
-    """Apply the full normalization stack appropriate for stored ``rule_text``.
+    """Apply the full normalization stack.  Order matters:
 
-    Order matters: extract keyword invocations *before* you strip the wrappers,
-    otherwise the structure is gone.  This function does **not** drop keyword
-    parameters from the rendered text — use :func:`iter_keyword_invocations` if
-    you need the parameter list separately.
+      1. Extract keyword invocations *before* we discard the wrappers (callers
+         that need the refs use :func:`iter_keyword_invocations`).
+      2. Strip ``<kw-N>`` wrappers (keep body).
+      3. Strip word-list / wrapper tags (``<key>``, ``<atom-param>``, ``<param-*>``,
+         ``<nospellcheck>``, ``<soft>``, ``<atom-sep…>``, ``<atom-reminder…>`` …).
+      4. Convert ``<sym...>`` → ``{X}`` per slot, then drop any malformed
+         leftovers (e.g. swapped ``</sym>1<sym>``).
+      5. Normalize italic variants to ``<i>``.
+      6. Collapse runs of whitespace introduced by tag removal.
     """
-    text = normalize_mana_symbols(text)
-    text = strip_word_lists(text)
     text = strip_keyword_wrappers(text)
-    text = strip_simple_tags(text)
+    text = strip_word_lists(text)
+    text = strip_wrapper_tags(text)
+    text = normalize_mana_symbols(text)
+    text = _RE_STRAY_SYM.sub("", text)
+    text = normalize_italics(text)
+    text = _collapse_inline_whitespace(text)
+    return text
+
+
+def canonicalize_flavor(text: str) -> str:
+    """Aggressive cleaning for ``flavor_text`` — strip *all* tags (including
+    italic variants).  Per init_prompt_4 #11, flavor doesn't need any markup
+    survival in Phase 1.
+    """
+    text = re.sub(r"<[^>]+>", "", text or "")
+    text = _collapse_inline_whitespace(text).strip()
+    return text
+
+
+def strip_all_tags(text: str) -> str:
+    """Aggressive stripper for fields that are pure plaintext (sub_type, etc.).
+
+    Removes *every* ``<…>`` tag and trims trailing whitespace runs.
+    """
+    text = re.sub(r"<[^>]+>", "", text)
+    return _collapse_inline_whitespace(text).strip()
+
+
+_RE_MULTI_SPACE = re.compile(r"[ \t]+")
+_RE_TRAILING_WS = re.compile(r"[ \t]+(?=\n|$)")
+
+
+def _collapse_inline_whitespace(text: str) -> str:
+    text = _RE_MULTI_SPACE.sub(" ", text)
+    text = _RE_TRAILING_WS.sub("", text)
     return text
 
 
 def normalize_keyword_match(match: str) -> str:
-    """Normalize a keyword's ``match:`` string for identity (strict / option B).
+    """Normalize a keyword's ``match:`` for storage (strict B identity).
 
-    Per init_prompt_4 we use the literal match string verbatim — no atom-param
-    label collapsing.  We still trim whitespace and collapse internal spaces so
-    minor formatting differences don't create duplicates.
+    We trim and collapse internal whitespace but *keep* ``<atom-param>label</atom-param>``
+    verbatim — labels are part of the identity per init_prompt_4 #2.
     """
     return re.sub(r"\s+", " ", match.strip())
+
+
+# ---------------------------------------------------------------------------
+# Display helpers
+# ---------------------------------------------------------------------------
+
+
+def render_casting_cost(value: str | None) -> str:
+    """Render a raw MSE casting_cost field for human reading.
+
+    Each atomic mana slot is emitted in turn; hybrid slots (containing ``/``)
+    are wrapped in parentheses so ``G/UG/U`` displays as ``(G/U)(G/U)``
+    (init_prompt_4 #5).  Non-hybrid slots are emitted as-is, so plain costs
+    like ``2WU`` stay readable as ``2WU``.
+    """
+    if not value:
+        return ""
+    tokens = _tokenize_mana_string(value)
+    return "".join(f"({t})" if "/" in t else t for t in tokens)
+
+
+_RE_ATOM_PARAM_DISPLAY = re.compile(r"<atom-param>([^<]*)</atom-param>", re.IGNORECASE)
+
+
+def render_match_for_display(match: str | None) -> str:
+    """Convert a stored keyword ``match:`` for human display.
+
+    Per init_prompt_4 #10/#94 the ``<atom-param>X</atom-param>`` wrapper is
+    replaced with ``<X>`` (literal angle brackets).  The result is plain text
+    that the template will HTML-escape — escaping turns ``<`` into ``&lt;``
+    so the brackets render visually.
+    """
+    if not match:
+        return ""
+    return _RE_ATOM_PARAM_DISPLAY.sub(lambda m: f"<{m.group(1)}>", match)

@@ -3,10 +3,10 @@ from __future__ import annotations
 from .models import ParsedCard, ParsedCardFace
 from .notes_parser import parse_notes
 from .tags import (
+    canonicalize_flavor,
     canonicalize_text,
     iter_keyword_invocations,
-    strip_simple_tags,
-    strip_word_lists,
+    strip_all_tags,
 )
 from .tree import MseNode
 
@@ -56,17 +56,30 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
     sub_type = _join_type_chain(node, "sub_type", suffix, is_dfc=is_dfc) or None
 
     rule_text_raw = node.get(f"rule_text{suffix}") or ""
-    rule_text_canon = canonicalize_text(rule_text_raw)
-    abilities = canonicalize_text(rule_text_raw)  # Phase 1: same content
-    keyword_refs = [k for k, _ in iter_keyword_invocations(rule_text_raw)]
+    rule_text_canon = canonicalize_text(rule_text_raw) or None
+    abilities = rule_text_canon  # Phase 1: same content
+    # Case-insensitive dedup of keyword refs: lower-case as the dedup key,
+    # preserve the first-seen casing for display / lookup.
+    keyword_refs: list[str] = []
+    seen_refs: set[str] = set()
+    for ref, _params in iter_keyword_invocations(rule_text_raw):
+        key = ref.lower()
+        if key in seen_refs:
+            continue
+        seen_refs.add(key)
+        keyword_refs.append(ref)
 
     flavor_raw = node.get(f"flavor_text{suffix}") or ""
-    flavor = strip_simple_tags(flavor_raw).strip() or None
+    flavor = canonicalize_flavor(flavor_raw) or None
 
     casting_cost = node.get(f"casting_cost{suffix}") or None
     indicator = node.get(f"indicator{suffix}") or None
     card_color = node.get(f"card_color{suffix}") or None
-    rarity = node.get("rarity") or None  # rarity is not face-scoped in MSE
+    # Rarity is not face-scoped in MSE.  Missing → autofill 'common' (init_prompt_3 #2);
+    # the original-missing flag is on ``rarity_missing``.
+    raw_rarity = (node.get("rarity") or "").strip()
+    rarity = raw_rarity or "common"
+    rarity_missing = not raw_rarity
 
     extra_data = _flatten_extra_data(node, suffix)
     stylesheet = node.get("stylesheet") or None
@@ -92,6 +105,7 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
         super_type=super_type,
         sub_type=sub_type,
         rarity=rarity,
+        rarity_missing=rarity_missing,
         casting_cost=casting_cost,
         indicator=indicator,
         extra_data=extra_data,
@@ -101,8 +115,8 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
         power=power,
         toughness=toughness,
         flavor_text=flavor,
-        rule_text=rule_text_canon or None,
-        abilities=abilities or None,
+        rule_text=rule_text_canon,
+        abilities=abilities,
         keyword_refs=keyword_refs,
         notes=notes,
         raw_notes=raw_notes,
@@ -130,14 +144,17 @@ def _join_type_chain(node: MseNode, base_key: str, suffix: str, *, is_dfc: bool)
         key = f"{base_key}{suffix}"
         val = node.get(key)
         if val:
-            parts.append(strip_word_lists(val).strip())
+            parts.append(strip_all_tags(val))
     else:
         for extra in ("", "_2", "_3"):
             key = f"{base_key}{extra}"
             val = node.get(key)
             if val:
-                parts.append(strip_word_lists(val).strip())
-    return " ".join(p for p in parts if p)
+                parts.append(strip_all_tags(val))
+    joined = " ".join(p for p in parts if p)
+    # collapse runs of internal whitespace that the per-part tag stripping
+    # may have left behind.
+    return " ".join(joined.split())
 
 
 def _flatten_extra_data(node: MseNode, suffix: str) -> dict[str, str]:

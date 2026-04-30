@@ -60,22 +60,26 @@ def resolve_keyword_refs_for_face(
     face: ParsedCardFace,
     repos: IngestRepos,
 ) -> tuple[list[int], list[str]]:
-    """For every ``<key>`` reference on the face, return (keyword_ids, stub_names_created)."""
+    """For every ``<key>`` reference on the face, return ``(keyword_ids,
+    stub_names_created)``.
+
+    Resolution uses :meth:`KeywordRepository.find_for_card_ref` so that
+    parameterized references like ``Cleave 1RR`` link to a single
+    ``Cleave <atom-param>cost</atom-param>`` definition rather than
+    creating one stub per concrete value (init_prompt_4 #9/#10).
+    """
     ids: list[int] = []
     stubs_created: list[str] = []
     for ref in face.keyword_refs:
-        # First: try to find an *exact* match-string identity that contains the
-        # ``<key>`` text — keyword identity in Phase 1 is the literal match.
-        # We don't have the full match-string from the card's referencing tag,
-        # so we fall back to matching by source_keyword_field.
-        existing = repos.keywords.find_stub_by_keyword_field(ref) or repos.keywords.find_by_match(ref)
+        existing = repos.keywords.find_for_card_ref(ref)
         if existing is None:
             stub = repos.keywords.ensure_stub(ref)
-            ids.append(stub.id)
-            stubs_created.append(ref)
+            stubs_created.append(stub.name)
+            kid = stub.id
         else:
-            if existing.id not in ids:
-                ids.append(existing.id)
+            kid = existing.id
+        if kid not in ids:
+            ids.append(kid)
     return ids, stubs_created
 
 
@@ -124,8 +128,10 @@ def commit_face(
             log_entry_id=entry.id,
         )
 
-    # 3) Resolve final identity.
-    repo = repos.tokens if preview.route == "token" else repos.cards
+    # 3) Resolve final identity. ``route_override`` (set by the rarity:special
+    #    DB picker in the modal) wins over the auto-derived route.
+    effective_route = preview.route_override or preview.route
+    repo = repos.tokens if effective_route == "token" else repos.cards
     existing_identities = repo.existing_identities()
     proposed = preview.proposed_identity
 

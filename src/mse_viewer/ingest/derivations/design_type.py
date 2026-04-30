@@ -29,24 +29,24 @@ def derive_design_type(
         styling_data = dict(header.styling_defaults.get(stylesheet, {}))
 
     super_type = (face.super_type or "").lower()
+    frames = _frames_without_snow(styling_data.get("frames"))
 
     # ---- m15-altered ----
     if stylesheet == "m15-altered":
-        frames = (styling_data.get("frames") or "").strip().lower()
         if frames == "fnm promo":
             return DesignTypeResult("Colorpushed", False)
-        if frames in ("snow", ""):
+        if frames == "":
             return DesignTypeResult("Normal", False)
-        # Otherwise, ask.
         return _ask(face, stylesheet, styling_data, playbook_lookup, "altered styling combination not in rule table")
 
     if stylesheet in ("m15-mainframe-planeswalker", "m15-mainframe-tokens"):
         return DesignTypeResult("Normal", False)
 
     if stylesheet == "m15-altered-beyond":
+        # init_prompt_3 → phase1_prompt_2 ruling: Evolution/Hero are not an
+        # exception; both default to "Normal" (no prompt).
         if "evolution" in super_type or "hero" in super_type:
-            # Flagged in spec; ask the user (Phase 1 — no canonical default).
-            return _ask(face, stylesheet, styling_data, playbook_lookup, "altered-beyond + Evolution/Hero exception")
+            return DesignTypeResult("Normal", False)
         return DesignTypeResult("Unique", False)
 
     if stylesheet == "m15-extra-udelude":
@@ -56,10 +56,23 @@ def derive_design_type(
         return DesignTypeResult("Additional Color - Unique", False)
 
     if not stylesheet:
-        # Cards with no stylesheet at all — fall through to a Normal default.
         return DesignTypeResult("Normal", False)
 
     return _ask(face, stylesheet, styling_data, playbook_lookup, "stylesheet not in rule table")
+
+
+def _frames_without_snow(value: str | None) -> str:
+    """Return the ``frames`` field with ``snow`` filtered out, comma-separated.
+
+    Per init_prompt_3 #5: ``snow`` is treated as cosmetic for *every* stylesheet
+    and never participates in design-type derivation.  Empty string means "no
+    meaningful frames".
+    """
+    if not value:
+        return ""
+    parts = [p.strip().lower() for p in value.split(",")]
+    parts = [p for p in parts if p and p != "snow"]
+    return ", ".join(parts)
 
 
 def _ask(

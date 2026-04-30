@@ -10,8 +10,8 @@
     </header>
     <dl>
         <dt>Display name</dt><dd>{{ token.display_name }}</dd>
-        <dt>Cost</dt><dd>{{ token.casting_cost or "—" }}</dd>
-        <dt>Colors</dt><dd>{{ token.colors|join(", ") or "—" }}</dd>
+        <dt>Cost</dt><dd>{{ token.casting_cost | render_cost or "—" }}</dd>
+        <dt>Colors</dt><dd>{{ token.colors | render_colors }}</dd>
         <dt>P/T</dt><dd>{{ token.power or "—" }} / {{ token.toughness or "—" }}</dd>
         <dt>Design type</dt><dd>{{ token.design_type }}</dd>
         <dt>Sets</dt><dd>{{ token.sets|join(", ") or "—" }}</dd>
@@ -19,7 +19,11 @@
         <dt>Related cards</dt><dd>{{ token.related_cards|join(", ") or "—" }}</dd>
     </dl>
     <h4>Rule text</h4>
-    <pre style="white-space: pre-wrap;">{{ token.rule_text or "—" }}</pre>
+    {% if token.rule_text %}
+        <div class="rule-text">{{ token.rule_text | render_text }}</div>
+    {% else %}
+        <p>—</p>
+    {% endif %}
     {% if keywords %}
     <h4>Keywords</h4>
     <ul>

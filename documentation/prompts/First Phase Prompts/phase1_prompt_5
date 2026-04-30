@@ -1,0 +1,85 @@
+1. "Warnings
+rarity_special — Rarity is 'special' — choose Cards or Tokens DB."
+
+Still no option to actually choose in the UI??? am I meant to put it here?
+
+Decisions
+Override fields
+Design type 
+Normal
+Rarity 
+special
+Colors (comma-separated)
+
+2. "keywords (refs)
+First strike, reach, Outrange, flying"
+
+Stub keywords should also be capitalized
+
+3. Maybe when inputting Override fields, also in the field where you write have a dropdown with options already in the db
+
+4. Add a TODO - pretty up reminders such as this one
+Players dealt damage by this creature also get {param1} poison {
+if param1.value=="1" then "counter."
+else "counters."
+}
+
+5. Keywords aren't also parsed from cards.
+For example, for a card that has this rule text field:
+Rule text
+Triple strike (This creature deals first-strike, regular, and last-strike combat damage.)
+Strikethrough (If this creature deals damage to a creature or planeswalker, it deals damage to its controller as well.)
+Hexproof (This creature can’t be the target of spells or abilities your opponents control.)
+
+these here are 3 keywords. Strikethrough is actually defined, but the stubs Triple Strike and Hexproof could have been stored as actual keywords, with the reminder text being the text inbetween the brackets, the source and match being the actual keyword.
+
+6. Stubs for the tokens don't have the nice (stub) reminder like other cards:
+
+for a token:
+Keywords
+Triple strike
+Strikethrough
+Hexproof
+
+for a card:
+Keywords
+Haste (stub)
+Strikethrough
+
+7. For the keyword refs for cards (and implicitly tokens):
+
+Keywords
+Arm Trap
+Trigger
+Flying (stub)
+Rearm <atom-param>cost</atom-param>
+
+can you make the printed text use the updated name forms? So Rearm <cost> instead of Rearm <atom-param>cost</atom-param>
+
+8. You forgot to strip this tag:
+M<kw-1>ulti-strike 3 (Whenever this creature would deal damage, it initiates 3 damage instances instead. All instances damage the same player or planeswalker, or creatures the same player controls. During combat, each instance is a separate combat instance. The defender chooses one combat instance in which this can block other attackers or be dealt combat damage.)
+
+<kw-1> needs to be removed
+
+9. Remove tags from keyword notes:
+"Notes
+Create a card which was not originally in the player's deck or sideboard.
+Ways of playing with conjure (ordered from most to least liked):<soft-line>
+- loose randomness (take whatever card is lying around, by e.g. randomly looking for a card through the card list)
+- hard randomness (assign a number to each possible variant, then use a RNG to determine the card)<soft-line>
+- hard randomness with reduced pool size (hard randomness, but restrict the pool size)
+- take a specific card you think of, but reveal it to an opponent
+- take a specific card you think of, but reveal it to an opponent. That opponent must agree with the card chosen
+- draw a card instead</soft-line></soft-line>"
+
+10. Upon the input screen, power levels are still hidden unless presed on. Make them permanently visible.
+
+11. Upon changing a log note's status from table view, the page reloads and thus sends me at the top. This may be a system limitation of the libraries used, but can that be removed?
+
+12. Also, in the table view for cards:
+Name	Type	Cost	Colors	P/T	Design	Sets	Alt arts	Rule text
+Angry Apple	Token Creature — Fruit Plant Construct	1RGW	red, green, white	2/2	Normal	tst		Triple strike <i>(This creature deals first-strike, regular, and last-strike combat damage.)</i> Strikethrough <i>(If th…
+
+as you can see, you can see the small tags in the Rule text snippet views. Since I assume these tags would be used by the UI and should be stored in the fields, could they also be applied their effects here, and basically anywhere the UI is used? (also, for further ref, I want them to be ignored by queries, so when you design the queries, remember to match strings indiferent of these tags' presence)
+
+Although it's improving with each version. Well done! Phase 1 is coming to an end.

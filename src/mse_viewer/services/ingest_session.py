@@ -26,23 +26,41 @@ class IngestSession:
     previews: list[FacePreview] = field(default_factory=list)
     cursor: int = 0
     keyword_ids: dict[str, int] = field(default_factory=dict)
-    committed: list[int] = field(default_factory=list)  # face indexes already committed
+    committed: list[int] = field(default_factory=list)
     skipped: list[int] = field(default_factory=list)
+    auto_committed_count: int = 0
+    parsed_total: int = 0
     finished: bool = False
 
     @property
-    def total(self) -> int:
+    def review_total(self) -> int:
+        """Number of cards in the manual review queue."""
         return len(self.previews)
 
+    @property
+    def review_count(self) -> int:
+        """Number of cards still queued for manual review."""
+        return max(0, self.review_total - self.cursor)
+
     def current(self) -> FacePreview | None:
-        if self.cursor >= self.total:
+        if self.cursor >= self.review_total:
             return None
         return self.previews[self.cursor]
 
     def advance(self) -> None:
         self.cursor += 1
-        if self.cursor >= self.total:
+        if self.cursor >= self.review_total:
             self.finished = True
+
+
+def _needs_review(preview: FacePreview) -> bool:
+    """A preview needs the user only when there's a real warning OR the user
+    explicitly asked to be stopped (Do Not Read is auto-handled separately).
+    """
+    if preview.face.notes.do_not_read:
+        # Auto-skipped + logged; never shown in the UI.
+        return False
+    return bool(preview.warnings)
 
 
 class IngestSessionStore:
@@ -65,10 +83,10 @@ class IngestSessionStore:
         # Build per-face previews up-front.
         existing_card_ids = repos.cards.existing_identities()
         existing_token_ids = repos.tokens.existing_identities()
-        previews: list[FacePreview] = []
+        all_previews: list[FacePreview] = []
         for card in parsed.cards:
             for face in card.faces:
-                previews.append(
+                all_previews.append(
                     build_preview(
                         face,
                         header=parsed.header,
@@ -78,14 +96,45 @@ class IngestSessionStore:
                     )
                 )
 
+        # Auto-commit every preview that doesn't need a review, *in order*, so
+        # that subsequent identity-collision checks against the in-DB state
+        # remain accurate. Surviving previews (those needing review) feed the
+        # modal queue.
+        review_queue: list[FacePreview] = []
+        auto_count = 0
+        skipped: list[int] = []
+        committed: list[int] = []
+        for preview in all_previews:
+            if _needs_review(preview):
+                review_queue.append(preview)
+                continue
+            result = commit_face(
+                preview,
+                set_name=set_name,
+                pwl_default_for_rarity=pwl_defaults,
+                repos=repos,
+            )
+            auto_count += 1
+            if result.skipped:
+                skipped.append(auto_count - 1)
+            elif result.record_id is not None:
+                committed.append(result.record_id)
+        repos.db.commit()
+
         session = IngestSession(
             id=uuid4().hex,
             parsed=parsed,
             set_name=set_name,
             pwl_defaults=pwl_defaults,
-            previews=previews,
+            previews=review_queue,
             keyword_ids=keyword_ids,
+            auto_committed_count=auto_count,
+            committed=committed,
+            skipped=skipped,
+            parsed_total=len(all_previews),
         )
+        if not review_queue:
+            session.finished = True
         with self._lock:
             self._sessions[session.id] = session
         return session
@@ -148,6 +197,10 @@ def _apply_modal_answers(preview: FacePreview, *, action: str, data: dict) -> No
     if label:
         preview.accept_as_alternate_label = label
         preview.collision_resolution = preview.collision_resolution or "alternate"
+
+    route_override = (data.get("route_override") or "").strip().lower() or None
+    if route_override in ("card", "token"):
+        preview.route_override = route_override  # type: ignore[assignment]
 
 
 # Module-level singleton store. The FastAPI dependency below returns this one.

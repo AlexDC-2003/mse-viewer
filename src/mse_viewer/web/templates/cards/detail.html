@@ -11,8 +11,8 @@
     </header>
     <dl>
         <dt>Display name</dt><dd>{{ card.display_name }}</dd>
-        <dt>Cost</dt><dd>{{ card.casting_cost or "—" }}</dd>
-        <dt>Colors</dt><dd>{{ card.colors|join(", ") or "—" }}</dd>
+        <dt>Cost</dt><dd>{{ card.casting_cost | render_cost or "—" }}</dd>
+        <dt>Colors</dt><dd>{{ card.colors | render_colors }}</dd>
         <dt>P/T</dt><dd>{{ card.power or "—" }} / {{ card.toughness or "—" }}</dd>
         <dt>Rarity</dt><dd>{{ card.rarity }}</dd>
         <dt>Power level</dt><dd>{{ card.power_level if card.power_level is not none else "—" }}</dd>
@@ -22,10 +22,14 @@
         <dt>Related cards</dt><dd>{{ card.related_cards|join(", ") or "—" }}</dd>
     </dl>
     <h4>Rule text</h4>
-    <pre style="white-space: pre-wrap;">{{ card.rule_text or "—" }}</pre>
+    {% if card.rule_text %}
+        <div class="rule-text">{{ card.rule_text | render_text }}</div>
+    {% else %}
+        <p>—</p>
+    {% endif %}
     {% if card.flavor_text %}
         <h4>Flavor</h4>
-        <pre style="white-space: pre-wrap;"><em>{{ card.flavor_text }}</em></pre>
+        <div class="rule-text"><em>{{ card.flavor_text | render_text }}</em></div>
     {% endif %}
     {% if keywords %}
     <h4>Keywords</h4>

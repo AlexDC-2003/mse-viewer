@@ -37,7 +37,7 @@ def review_current(
             "preview": preview,
             "warnings": preview.warnings.warnings if preview else [],
             "index": session.cursor + 1,
-            "total": session.total,
+            "total": session.review_total,
         },
     )
 
@@ -51,6 +51,7 @@ def review_commit(
     colors: str | None = Form(None),
     alt_art_label: str | None = Form(None),
     collision_resolution: str | None = Form(None),
+    route_override: str | None = Form(None),
     db: Session = Depends(get_db),
     store: IngestSessionStore = Depends(get_session_store),
 ):
@@ -70,6 +71,7 @@ def review_commit(
             "colors": colors,
             "alt_art_label": alt_art_label,
             "collision_resolution": collision_resolution,
+            "route_override": route_override,
         },
     )
     return RedirectResponse(url=f"/review/{session_id}", status_code=303)
