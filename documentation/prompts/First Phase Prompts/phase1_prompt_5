@@ -82,4 +82,4 @@ Angry Apple	Token Creature — Fruit Plant Construct	1RGW	red, green, white	2/2	
 
 as you can see, you can see the small tags in the Rule text snippet views. Since I assume these tags would be used by the UI and should be stored in the fields, could they also be applied their effects here, and basically anywhere the UI is used? (also, for further ref, I want them to be ignored by queries, so when you design the queries, remember to match strings indiferent of these tags' presence)
 
-Although it's improving with each version. Well done! Phase 1 is coming to an end.
+Although it's improving with each version. Well done! Phase 1 is coming to an end. Fix those bugs for now.

@@ -40,7 +40,7 @@
             <td>{{ c.sets|join(", ") }}</td>
             <td>{{ c.alt_arts|join(", ") }}</td>
             <td>{{ "yes" if c.printed else "" }}</td>
-            <td><small>{{ (c.rule_text or "")[:120] }}{{ "…" if c.rule_text and c.rule_text|length > 120 else "" }}</small></td>
+            <td><small>{{ c.rule_text | render_text_snippet }}</small></td>
         </tr>
     {% endfor %}
     </tbody>

@@ -42,7 +42,8 @@ def resolve(entry_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404)
     repo.transition(entry, LogState.resolved)
     db.commit()
-    return RedirectResponse(url="/log", status_code=303)
+    # Anchor on the row so the browser scrolls back to where the user was.
+    return RedirectResponse(url=f"/log#entry-{entry_id}", status_code=303)
 
 
 @router.post("/{entry_id}/reopen")
@@ -53,7 +54,7 @@ def reopen(entry_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404)
     repo.transition(entry, LogState.open)
     db.commit()
-    return RedirectResponse(url="/log", status_code=303)
+    return RedirectResponse(url=f"/log#entry-{entry_id}", status_code=303)
 
 
 @router.post("")

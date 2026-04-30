@@ -46,7 +46,12 @@
                     {% if preview.design_type.value %}{{ preview.design_type.value }}
                     {% else %}<em>needs user input</em>{% endif %}
                 </dd>
-                <dt>keywords (refs)</dt><dd>{{ preview.face.keyword_refs|join(", ") or "—" }}</dd>
+                <dt>keywords (refs)</dt>
+                <dd>
+                    {% if preview.face.keyword_refs %}
+                        {% for ref in preview.face.keyword_refs %}{{ ref|capitalize }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    {% else %}—{% endif %}
+                </dd>
                 <dt>printed?</dt><dd>{{ "yes" if preview.face.notes.status_printed else "no" }}</dd>
                 <dt>related</dt><dd>{{ preview.face.related_from_notes|join(", ") or "—" }}</dd>
             </dl>
@@ -65,14 +70,13 @@
         <section>
             <h4>Decisions</h4>
 
-            {% set has_conflict = false %}
-            {% set has_rarity_special = false %}
+            {% set ns = namespace(has_conflict=false, has_rarity_special=false) %}
             {% for w in warnings %}
-                {% if w.kind == "identity_conflict" %}{% set has_conflict = true %}{% endif %}
-                {% if w.kind == "rarity_special" %}{% set has_rarity_special = true %}{% endif %}
+                {% if w.kind == "identity_conflict" %}{% set ns.has_conflict = true %}{% endif %}
+                {% if w.kind == "rarity_special" %}{% set ns.has_rarity_special = true %}{% endif %}
             {% endfor %}
 
-            {% if has_rarity_special %}
+            {% if ns.has_rarity_special %}
             <fieldset>
                 <legend>Rarity is 'special' — choose database</legend>
                 <label><input type="radio" name="route_override" value="card" checked> Save in Cards DB</label>
@@ -80,7 +84,7 @@
             </fieldset>
             {% endif %}
 
-            {% if has_conflict %}
+            {% if ns.has_conflict %}
             <fieldset>
                 <legend>Identity conflict</legend>
                 <label><input type="radio" name="collision_resolution" value="update" checked> Update existing record</label>

@@ -73,7 +73,8 @@ def resolve_keyword_refs_for_face(
     for ref in face.keyword_refs:
         existing = repos.keywords.find_for_card_ref(ref)
         if existing is None:
-            stub = repos.keywords.ensure_stub(ref)
+            reminder = (face.keyword_reminders or {}).get(ref.lower())
+            stub = repos.keywords.ensure_stub(ref, reminder=reminder)
             stubs_created.append(stub.name)
             kid = stub.id
         else:

@@ -34,7 +34,7 @@
             <td>{{ t.design_type }}</td>
             <td>{{ t.sets|join(", ") }}</td>
             <td>{{ t.alt_arts|join(", ") }}</td>
-            <td><small>{{ (t.rule_text or "")[:120] }}{{ "…" if t.rule_text and t.rule_text|length > 120 else "" }}</small></td>
+            <td><small>{{ t.rule_text | render_text_snippet }}</small></td>
         </tr>
     {% endfor %}
     </tbody>

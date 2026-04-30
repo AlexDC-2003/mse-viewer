@@ -59,15 +59,19 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
     rule_text_canon = canonicalize_text(rule_text_raw) or None
     abilities = rule_text_canon  # Phase 1: same content
     # Case-insensitive dedup of keyword refs: lower-case as the dedup key,
-    # preserve the first-seen casing for display / lookup.
+    # preserve the first-seen casing for display / lookup.  Reminder text from
+    # the trailing ``<atom-reminder>`` block (if any) is kept alongside so the
+    # ingest pipeline can attach it to freshly-created stubs.
     keyword_refs: list[str] = []
+    keyword_reminders: dict[str, str] = {}
     seen_refs: set[str] = set()
-    for ref, _params in iter_keyword_invocations(rule_text_raw):
+    for ref, _params, reminder in iter_keyword_invocations(rule_text_raw):
         key = ref.lower()
-        if key in seen_refs:
-            continue
-        seen_refs.add(key)
-        keyword_refs.append(ref)
+        if key not in seen_refs:
+            seen_refs.add(key)
+            keyword_refs.append(ref)
+        if reminder and key not in keyword_reminders:
+            keyword_reminders[key] = reminder
 
     flavor_raw = node.get(f"flavor_text{suffix}") or ""
     flavor = canonicalize_flavor(flavor_raw) or None
@@ -118,6 +122,7 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
         rule_text=rule_text_canon,
         abilities=abilities,
         keyword_refs=keyword_refs,
+        keyword_reminders=keyword_reminders,
         notes=notes,
         raw_notes=raw_notes,
         alias=alias_field or None,

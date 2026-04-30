@@ -33,6 +33,27 @@ def render_text(value: str | None) -> Markup:
     return Markup(rendered)
 
 
+def render_text_snippet(value: str | None, length: int = 120) -> Markup:
+    """Render a *truncated* rule_text for table cells.
+
+    Same behaviour as :func:`render_text` but caps to ``length`` characters
+    (with an ellipsis appended) and balances any whitelisted tag pair that the
+    truncation cut in half — otherwise an unclosed ``<i>`` would leak italics
+    into the rest of the page.
+    """
+    if not value:
+        return Markup("")
+    cut = len(value) > length
+    raw = value[:length] + ("…" if cut else "")
+    rendered = str(render_text(raw))
+    for tag in ("i", "b"):
+        opens = rendered.count(f"<{tag}>")
+        closes = rendered.count(f"</{tag}>")
+        if opens > closes:
+            rendered += f"</{tag}>" * (opens - closes)
+    return Markup(rendered)
+
+
 def render_match(value: str | None) -> Markup:
     """Render a stored keyword ``match:`` for display.
 
@@ -62,6 +83,7 @@ def render_colors(values: list[str] | None) -> Markup:
 def get_templates() -> Jinja2Templates:
     t = Jinja2Templates(directory=str(_TEMPLATES_DIR))
     t.env.filters["render_text"] = render_text
+    t.env.filters["render_text_snippet"] = render_text_snippet
     t.env.filters["render_match"] = render_match
     t.env.filters["render_cost"] = render_cost
     t.env.filters["render_colors"] = render_colors

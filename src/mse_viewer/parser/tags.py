@@ -149,6 +149,10 @@ _RE_ATOM_REMINDER_FAMILY = re.compile(r"</?atom-reminder(?:-[^>\s]+)?(?:\s[^>]*)
 _RE_PARAM_FAMILY = re.compile(r"</?param-[^>\s]+(?:\s[^>]*)?>", re.IGNORECASE)
 # Anything else that survived (and isn't an italic / bold we explicitly preserve).
 _RE_STRAY_SYM = re.compile(r"</?sym(?:-[^>\s]+)?(?:\s[^>]*)?>", re.IGNORECASE)
+# Stray, unpaired <kw-N> / </kw-N> tags that didn't match _RE_KW_BLOCK because
+# the file had a malformed pair (e.g. ``M<kw-1>ulti-strike 3 (...)`` from the
+# user's report).  Run as a final cleanup so we never leak ``<kw-…>`` to users.
+_RE_STRAY_KW = re.compile(r"</?kw-[a-zA-Z0-9]+(?:\s[^>]*)?>", re.IGNORECASE)
 
 
 def strip_wrapper_tags(text: str) -> str:
@@ -175,14 +179,28 @@ _RE_KEY = re.compile(r"<key>(.*?)</key>", re.IGNORECASE | re.DOTALL)
 _RE_ATOM_PARAM = re.compile(r"<atom-param>([^<]*)</atom-param>", re.IGNORECASE)
 
 
-def iter_keyword_invocations(text: str) -> list[tuple[str, list[str]]]:
-    """Return every keyword invocation as ``(key_text, [param_values])``.
+_RE_REMINDER = re.compile(
+    r"<atom-reminder(?:-[^>\s]+)?(?:\s[^>]*)?>(.*?)</atom-reminder(?:-[^>\s]+)?>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def iter_keyword_invocations(text: str) -> list[tuple[str, list[str], str | None]]:
+    """Return every keyword invocation as ``(key_text, [param_values], reminder_text|None)``.
 
     Captures both ``<kw-N>...<key>X</key>...</kw-N>`` blocks AND standalone
-    ``<key>X</key>`` references that appear in body text without a kw wrapper
-    (e.g. *"has <key>toxicity <param-number>1</param-number></key>"*).
+    ``<key>X</key>`` references.  Reminder text is recognised in two positions
+    (real MSE files use both):
+
+      1. **Inside the ``<kw-N>`` body**, e.g.
+         ``<kw-A><nospellcheck><key>Amphibious</key></nospellcheck><atom-reminder-custom>(...)</atom-reminder-custom></kw-A>``
+      2. **Immediately after the ``<kw-N>`` close** (or after a standalone ``<key>``),
+         allowing leading whitespace.
+
+    The first match wins; the body is cleaned (italic / wrapper / mana
+    normalization) and returned so callers can attach it to a stub.
     """
-    out: list[tuple[str, list[str]]] = []
+    out: list[tuple[str, list[str], str | None]] = []
     seen_spans: list[tuple[int, int]] = []
 
     for m in _RE_KW_BLOCK.finditer(text):
@@ -191,16 +209,43 @@ def iter_keyword_invocations(text: str) -> list[tuple[str, list[str]]]:
         if not key_match:
             continue
         params = [p.group(1) for p in _RE_ATOM_PARAM.finditer(body)]
-        out.append((_clean_key_text(key_match.group(1)), params))
+        reminder = _capture_reminder_inside(body) or _capture_reminder_after(text, m.end())
+        out.append((_clean_key_text(key_match.group(1)), params, reminder))
         seen_spans.append(m.span())
 
     for m in _RE_KEY.finditer(text):
-        # Skip occurrences already captured inside a <kw-N> block.
         if any(s <= m.start() < e for s, e in seen_spans):
             continue
-        out.append((_clean_key_text(m.group(1)), []))
+        reminder = _capture_reminder_after(text, m.end())
+        out.append((_clean_key_text(m.group(1)), [], reminder))
 
     return out
+
+
+def _capture_reminder_inside(body: str) -> str | None:
+    """Find an ``<atom-reminder…>`` element anywhere inside a ``<kw-N>`` body."""
+    m = _RE_REMINDER.search(body)
+    return _clean_reminder(m.group(1)) if m else None
+
+
+def _capture_reminder_after(text: str, idx: int) -> str | None:
+    """If the substring starting at ``idx`` (after optional whitespace) is an
+    ``<atom-reminder…>`` block, return its cleaned visible text."""
+    j = idx
+    while j < len(text) and text[j].isspace():
+        j += 1
+    m = _RE_REMINDER.match(text, j)
+    return _clean_reminder(m.group(1)) if m else None
+
+
+def _clean_reminder(inner: str) -> str | None:
+    inner = strip_word_lists(inner)
+    inner = strip_wrapper_tags(inner)
+    inner = normalize_mana_symbols(inner)
+    inner = _RE_STRAY_SYM.sub("", inner)
+    inner = _RE_STRAY_KW.sub("", inner)
+    inner = re.sub(r"</?(?:i|i-auto|i-flavor|b)>", "", inner)
+    return _collapse_inline_whitespace(inner).strip() or None
 
 
 def _clean_key_text(s: str) -> str:
@@ -238,6 +283,7 @@ def canonicalize_text(text: str) -> str:
     text = strip_wrapper_tags(text)
     text = normalize_mana_symbols(text)
     text = _RE_STRAY_SYM.sub("", text)
+    text = _RE_STRAY_KW.sub("", text)
     text = normalize_italics(text)
     text = _collapse_inline_whitespace(text)
     return text

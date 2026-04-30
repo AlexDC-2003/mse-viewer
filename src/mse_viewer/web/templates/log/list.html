@@ -29,7 +29,7 @@
     <thead><tr><th>When</th><th>Kind</th><th>State</th><th>Title</th><th></th></tr></thead>
     <tbody>
     {% for e in entries %}
-        <tr>
+        <tr id="entry-{{ e.id }}">
             <td><small>{{ e.created_at.strftime("%Y-%m-%d %H:%M") }}</small></td>
             <td>{{ e.kind.value }}</td>
             <td>{{ e.state.value }}</td>

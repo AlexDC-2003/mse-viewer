@@ -18,3 +18,7 @@ nav ul { gap: .5rem; }
 .rule-text { white-space: normal; line-height: 1.45; }
 .rule-text br + br { display: block; content: ""; margin-top: .35rem; }
 .missing { color: var(--pico-muted-color); font-style: italic; }
+
+/* Scroll target highlight when the log redirects with #entry-N. */
+html { scroll-behavior: smooth; }
+tr:target { background: var(--pico-mark-background-color, #fff7c2); transition: background .8s ease-out; }

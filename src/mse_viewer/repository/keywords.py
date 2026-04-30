@@ -160,8 +160,12 @@ class KeywordRepository:
             existing.name = parsed.name  # promote casing if it was different
             existing.source_keyword_field = parsed.source_keyword_field or existing.source_keyword_field
             existing.accepted_parameters = list(parsed.accepted_parameters)
-            existing.reminder = parsed.reminder
-            existing.rules = parsed.rules
+            # Don't clobber a card-captured reminder/rules with None; the
+            # definition file may simply not include those fields.
+            if parsed.reminder is not None:
+                existing.reminder = parsed.reminder
+            if parsed.rules is not None:
+                existing.rules = parsed.rules
             existing.pseudo_keyword = parsed.pseudo_keyword
             existing.is_stub = False
             self.db.flush()
@@ -170,30 +174,39 @@ class KeywordRepository:
         self._absorb_matching_stubs(row)
         return row
 
-    def ensure_stub(self, ref_text: str) -> Keyword:
+    def ensure_stub(self, ref_text: str, *, reminder: str | None = None) -> Keyword:
         """Get-or-create a stub keyword for an unresolved card reference.
 
         First try to find an existing real or stub keyword that matches the
         reference (structurally or by name).  Only if nothing matches do we
         create a new stub, and the stub's name is the *canonical* form
-        (singular, leading-capital).
+        (singular, leading-capital).  ``reminder`` (if provided) is captured
+        from the trailing ``<atom-reminder>`` block that followed the
+        invocation in rule text — gives the stub a useful body so the
+        Keywords list isn't a wall of empty rows (init_prompt_5 #5).
         """
-        # If a real / stub already covers this reference, reuse it.
         existing = self.find_for_card_ref(ref_text)
         if existing is not None:
+            # If the existing row is a stub and we now have a reminder, fill it
+            # in (don't overwrite an already-populated reminder).
+            if existing.is_stub and reminder and not existing.reminder:
+                existing.reminder = reminder
+                self.db.flush()
             return existing
         canonical = _stub_canonical(ref_text)
         if not canonical:
             canonical = ref_text.strip() or "?"
-        # Re-check after canonicalization (case + singular collisions).
         existing_ci = self.find_by_match_ci(canonical)
         if existing_ci is not None:
+            if existing_ci.is_stub and reminder and not existing_ci.reminder:
+                existing_ci.reminder = reminder
+                self.db.flush()
             return existing_ci
         row = Keyword(
             name=canonical,
             source_keyword_field=canonical,
             accepted_parameters=[],
-            reminder=None,
+            reminder=reminder,
             rules=None,
             pseudo_keyword=False,
             is_stub=True,

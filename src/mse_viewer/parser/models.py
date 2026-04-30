@@ -43,6 +43,9 @@ class ParsedCardFace(BaseModel):
     rule_text: str | None = None      # canonicalized text
     abilities: str | None = None      # canonicalized text including kw bodies
     keyword_refs: list[str] = Field(default_factory=list)  # `<key>` text references
+    # ref-text (lower-case) → reminder text captured from the trailing
+    # ``<atom-reminder>`` block.  Used to enrich auto-created stubs.
+    keyword_reminders: dict[str, str] = Field(default_factory=dict)
     notes: ParsedNotes = Field(default_factory=ParsedNotes)
     raw_notes: str = ""
     alias: str | None = None          # for related-card discovery (Evo: X)

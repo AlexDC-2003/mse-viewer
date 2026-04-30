@@ -35,7 +35,13 @@
     <h4>Keywords</h4>
     <ul>
         {% for kw in keywords %}
-        <li><a href="/keywords/{{ kw.id }}">{{ kw.name }}</a>{% if kw.is_stub %} <small>(stub)</small>{% endif %}</li>
+        <li>
+            <a href="/keywords/{{ kw.id }}">{{ kw.name | render_match }}</a>
+            {% if kw.is_stub %}
+                {% if kw.reminder %}<small>(no definition yet)</small>
+                {% else %}<small>(stub)</small>{% endif %}
+            {% endif %}
+        </li>
         {% endfor %}
     </ul>
     {% endif %}
