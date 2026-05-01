@@ -15,9 +15,7 @@
             <th>Cost</th>
             <th>Colors</th>
             <th>P/T</th>
-            <th>Design</th>
             <th>Sets</th>
-            <th>Alt arts</th>
             <th>Rule text</th>
         </tr>
     </thead>
@@ -31,10 +29,8 @@
             <td>
                 {% if t.power or t.toughness %}{{ t.power or "" }}/{{ t.toughness or "" }}{% endif %}
             </td>
-            <td>{{ t.design_type }}</td>
             <td>{{ t.sets|join(", ") }}</td>
-            <td>{{ t.alt_arts|join(", ") }}</td>
-            <td><small>{{ t.rule_text | render_text_snippet }}</small></td>
+            <td><small>{{ t.rule_text | render_rule_text_snippet }}</small></td>
         </tr>
     {% endfor %}
     </tbody>

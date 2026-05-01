@@ -23,7 +23,7 @@
     </dl>
     <h4>Rule text</h4>
     {% if card.rule_text %}
-        <div class="rule-text">{{ card.rule_text | render_text }}</div>
+        <div class="rule-text">{{ card.rule_text | render_rule_text }}</div>
     {% else %}
         <p>—</p>
     {% endif %}

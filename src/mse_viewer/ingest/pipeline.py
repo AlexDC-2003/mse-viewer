@@ -1,6 +1,7 @@
 """Per-card commit step: take a FacePreview (post-modal) and write it to the DB."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -19,6 +20,8 @@ from .derivations.identity import next_collision_suffix
 from .playbook import PlaybookStore
 from .preview import FacePreview, Route
 from .warnings import WarningKind
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -70,15 +73,26 @@ def resolve_keyword_refs_for_face(
     """
     ids: list[int] = []
     stubs_created: list[str] = []
+    reminders = face.keyword_reminders or {}
     for ref in face.keyword_refs:
+        reminder = reminders.get(ref.lower())
         existing = repos.keywords.find_for_card_ref(ref)
         if existing is None:
-            reminder = (face.keyword_reminders or {}).get(ref.lower())
             stub = repos.keywords.ensure_stub(ref, reminder=reminder)
             stubs_created.append(stub.name)
             kid = stub.id
+            logger.info(
+                "keyword_ref card=%r ref=%r reminder=%r → new stub id=%s is_stub=%s",
+                face.name, ref, reminder, stub.id, stub.is_stub,
+            )
         else:
+            # Backfill the reminder onto a pre-existing stub if it didn't have one.
+            repos.keywords.maybe_backfill_reminder(existing, reminder)
             kid = existing.id
+            logger.info(
+                "keyword_ref card=%r ref=%r reminder=%r → existing id=%s is_stub=%s",
+                face.name, ref, reminder, existing.id, existing.is_stub,
+            )
         if kid not in ids:
             ids.append(kid)
     return ids, stubs_created
@@ -210,11 +224,13 @@ def commit_face(
             repo.append_alt_art(existing, label)
         repo.append_related(existing, list(face.related_from_notes))
         repos.db.flush()
-        return CommitResult(route=preview.route, record_id=existing.id)
+        return CommitResult(route=effective_route, record_id=existing.id)
 
-    # Fresh create.
+    # Fresh create. Honour ``effective_route`` (the user's modal pick beats the
+    # auto-derived route) so that a card with a name collision in the Cards DB
+    # can still be added to the Tokens DB without tripping cards.name UNIQUE.
     new_kwargs = {"name": proposed, **common_kwargs}
-    if preview.route == "card":
+    if effective_route == "card":
         new_kwargs["rarity"] = rarity
         new_kwargs["power_level"] = pwl
         row = repos.cards.create(**new_kwargs)
@@ -225,4 +241,4 @@ def commit_face(
     if alt_art_label:
         repo.append_alt_art(row, alt_art_label)
 
-    return CommitResult(route=preview.route, record_id=row.id)
+    return CommitResult(route=effective_route, record_id=row.id)
