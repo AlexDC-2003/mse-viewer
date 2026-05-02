@@ -17,6 +17,7 @@ from mse_viewer.repository._helpers import append_unique, normalize_set_name
 
 from .derivations.design_type import playbook_key
 from .derivations.identity import next_collision_suffix
+from .derivations.routing import is_evo_t
 from .playbook import PlaybookStore
 from .preview import FacePreview, Route
 from .warnings import WarningKind
@@ -206,6 +207,7 @@ def commit_face(
         design_type=design_type_value,
         notes=notes_body,
         printed=face.notes.status_printed,
+        alias=face.alias,
     )
 
     set_name_n = normalize_set_name(set_name)
@@ -223,6 +225,7 @@ def commit_face(
             label = alt_art_label or "alternate"
             repo.append_alt_art(existing, label)
         repo.append_related(existing, list(face.related_from_notes))
+        _apply_evo_t_cross_link(face, route=effective_route, row=existing, repos=repos)
         repos.db.flush()
         return CommitResult(route=effective_route, record_id=existing.id)
 
@@ -241,4 +244,38 @@ def commit_face(
     if alt_art_label:
         repo.append_alt_art(row, alt_art_label)
 
+    _apply_evo_t_cross_link(face, route=effective_route, row=row, repos=repos)
     return CommitResult(route=effective_route, record_id=row.id)
+
+
+def _apply_evo_t_cross_link(
+    face: ParsedCardFace,
+    *,
+    route: Route,
+    row,
+    repos: IngestRepos,
+) -> None:
+    """Cross-link an Evo-T variant with its namesake Card so the UI can
+    navigate between the two without changing identity rules.
+
+    Two directions, since ingest order isn't guaranteed:
+
+    * If ``face`` is Evo-T and lands in Tokens → look up the namesake Card
+      (case-insensitive match on display name) and link both ways.
+    * If ``face`` lands in Cards → look up any Token with the same display
+      name whose stored ``card_type`` marks it as an Evo-T and link both
+      ways. Catches the case where the Evo-T was imported first.
+
+    ``append_related`` is de-duplicating, so re-running the cross-link on
+    re-import never accumulates extra entries.
+    """
+    if route == "token" and is_evo_t(face):
+        for namesake in repos.cards.find_by_name_ci(face.name):
+            repos.tokens.append_related(row, [namesake.name])
+            repos.cards.append_related(namesake, [row.name])
+        return
+    if route == "card":
+        for tok in repos.tokens.find_by_name_ci(face.name):
+            if "evo-t" in (tok.card_type or "").lower():
+                repos.tokens.append_related(tok, [row.name])
+                repos.cards.append_related(row, [tok.name])

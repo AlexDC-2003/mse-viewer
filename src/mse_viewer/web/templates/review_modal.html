@@ -79,8 +79,8 @@
             {% if ns.has_rarity_special %}
             <fieldset>
                 <legend>Rarity is 'special' — choose database</legend>
-                <label><input type="radio" name="route_override" value="card" checked> Save in Cards DB</label>
-                <label><input type="radio" name="route_override" value="token"> Save in Tokens DB</label>
+                <label><input type="radio" name="route_override" value="token" checked> Save in Tokens DB</label>
+                <label><input type="radio" name="route_override" value="card"> Save in Cards DB</label>
             </fieldset>
             {% endif %}
 
@@ -103,19 +103,28 @@
                 <legend>Override fields</legend>
                 {% if preview.design_type.needs_user %}
                 <label>Design type (required to accept)
-                    <input name="design_type" required placeholder="e.g. Colorpushed-experimental">
+                    <input name="design_type" list="dl_design_types" required placeholder="e.g. Colorpushed-experimental">
                 </label>
                 {% else %}
                 <label>Design type
-                    <input name="design_type" value="{{ preview.design_type.value }}">
+                    <input name="design_type" list="dl_design_types" value="{{ preview.design_type.value }}">
                 </label>
                 {% endif %}
                 <label>Rarity
-                    <input name="rarity" value="{{ preview.face.rarity or 'common' }}">
+                    <input name="rarity" list="dl_rarities" value="{{ preview.face.rarity or 'common' }}">
                 </label>
                 <label>Colors (comma-separated)
-                    <input name="colors" value="{{ preview.colors|join(', ') }}">
+                    <input name="colors" list="dl_colors" value="{{ preview.colors|join(', ') }}">
                 </label>
+                <datalist id="dl_design_types">
+                    {% for v in distinct_design_types %}<option value="{{ v }}">{% endfor %}
+                </datalist>
+                <datalist id="dl_rarities">
+                    {% for v in distinct_rarities %}<option value="{{ v }}">{% endfor %}
+                </datalist>
+                <datalist id="dl_colors">
+                    {% for v in distinct_colors %}<option value="{{ v }}">{% endfor %}
+                </datalist>
             </fieldset>
         </section>
 

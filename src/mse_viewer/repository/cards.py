@@ -57,6 +57,21 @@ class _BaseCardRepo:
         )
         return list(self.db.execute(stmt).scalars())
 
+    def distinct_design_types(self) -> list[str]:
+        stmt = select(self.model.design_type).distinct()
+        return sorted({v for v in self.db.execute(stmt).scalars() if v})
+
+    def distinct_colors(self) -> list[str]:
+        # ``colors`` is a JSONB list column — flatten in Python; the dataset is
+        # small enough that this is cheaper than a set-returning Postgres
+        # function and avoids the awkward SA ergonomics around it.
+        seen: set[str] = set()
+        for row in self.db.execute(select(self.model.colors)).scalars():
+            for c in row or []:
+                if c:
+                    seen.add(c)
+        return sorted(seen)
+
 
 class CardRepository(_BaseCardRepo):
     model = Card
@@ -66,6 +81,10 @@ class CardRepository(_BaseCardRepo):
         self.db.add(row)
         self.db.flush()
         return row
+
+    def distinct_rarities(self) -> list[str]:
+        stmt = select(Card.rarity).distinct()
+        return sorted({v for v in self.db.execute(stmt).scalars() if v})
 
 
 class TokenRepository(_BaseCardRepo):

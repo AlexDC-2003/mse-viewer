@@ -77,12 +77,54 @@ def _split_rule_lines(value: str) -> str:
     return _RE_SEMICOLON_SEP.sub("\n", value)
 
 
-def render_rule_text(value: str | None) -> Markup:
-    """Render rule_text for the detail page: ``;`` becomes a line break, then
-    the same italic-preservation as :func:`render_text`."""
+def render_rule_text(
+    value: str | None,
+    keyword_reminders: dict[str, str] | None = None,
+) -> Markup:
+    """Render rule_text for the detail page.
+
+    ``;`` becomes a line break, then italic-preservation as :func:`render_text`.
+
+    If ``keyword_reminders`` is provided (a ``lower(name) → reminder`` map of
+    keywords this card references), any line whose entire content is one of
+    those keyword names AND has no inline ``(...)`` parenthetical gets the
+    stored reminder appended in italics — covers the case where the card text
+    just says ``Trample`` on its own line without an inline reminder body.
+    """
     if not value:
         return Markup("")
-    return render_text(_split_rule_lines(value))
+    text = _split_rule_lines(value)
+    if keyword_reminders:
+        text = _enrich_bare_keyword_lines(text, keyword_reminders)
+    return render_text(text)
+
+
+_RE_INLINE_ITALIC = re.compile(r"</?i>", re.IGNORECASE)
+
+
+def _enrich_bare_keyword_lines(text: str, keyword_reminders: dict[str, str]) -> str:
+    """Append ``<i>(reminder)</i>`` to lines whose entire body is a known
+    keyword name without an inline parenthesised reminder.
+
+    The match strips trailing punctuation (``.``, ``,``) and is
+    case-insensitive against the keyword's stored ``name``.
+    """
+    out: list[str] = []
+    for line in text.split("\n"):
+        bare = line.strip()
+        if not bare or "(" in bare:
+            out.append(line)
+            continue
+        normalized = bare.rstrip(".,").strip().lower()
+        reminder = keyword_reminders.get(normalized)
+        if reminder:
+            # Strip any pre-existing italic tags from the reminder body to avoid
+            # nested ``<i>`` (browsers can render nested italics as upright).
+            body = _RE_INLINE_ITALIC.sub("", reminder)
+            out.append(f"{line} <i>({body})</i>")
+        else:
+            out.append(line)
+    return "\n".join(out)
 
 
 def render_rule_text_snippet(value: str | None, length: int = 120) -> Markup:

@@ -1,0 +1,45 @@
+Ok, everything is not working perfectly.
+
+1. "Rule text
+First strike, reach, splash 2 (When this deals damage, it deals damage equal to its power to up to two other creatures.)
+Damage dealt by Cantaloupe-Pult can’t be prevented or reassigned.
+This can’t have its power reduced."
+
+If you see here, these keywords are ,-separated. Can you do the same as for ;, put them on diff lines, with reminder for each?
+Though be careful, abilities also use commas, and those shouldn't be linebroken.
+
+2. "Rule text
+Evolve: Inferno Dragon
+Evocycling (Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)"
+
+Evolve: <name> type abilities (so it, Evolve Spell etc.) don't have the reminder text in the detail view
+
+3. Tokens STILL have this problem:
+Keywords
+Triple strike (no definition yet)
+Strikethrough
+Hexproof
+
+You said: "The (no definition yet) annotation is the correct label for "stub with reminder body, but no formal keyword: block": the user knows about it, just hasn't filled in accepted_parameters / rules / pseudo-flag yet."
+
+ok but how is the reminder body obtained then??? again, my input file DOES NOT have it defined, so WHERE does it come from?
+
+4. At least in the detailed view of the UI of cards, such as:
+Related cards
+Leaf Blower
+
+these related cards aren't links to those cards. This may be due to how the card is not in the db. But then, please add a (missing) tag like the stubs.
+
+5. Whenever you see a "Evo-X" in the alias field like in here:
+Alias
+Evo: Doom-Buster (Evo-I)
+Related cards
+Doom-Buster (Evo-I)
+
+The (Evo-I) should be dropped from the related card. So, the related card is:
+Alias
+Evo: Doom-Buster (Evo-I)
+Related cards
+Doom-Buster
+
+Fix these, answer my question, then do wave 3

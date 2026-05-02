@@ -15,6 +15,55 @@ from mse_viewer.web.templating import templates
 router = APIRouter()
 
 
+def _linkify_related(
+    names: list[str] | None,
+    *,
+    current_kind: str,
+    current_name: str | None,
+    cards_repo: CardRepository,
+    tokens_repo: TokenRepository,
+) -> list[dict]:
+    """Resolve a row's ``related_cards`` strings to ``{name, href}`` dicts.
+
+    Lookup order for each name:
+
+    * If the related name equals the current row's own name, the entry is an
+      Evo-T-style cross-link → prefer the *opposite* kind so we link to the
+      sibling, not back to ourselves.
+    * Otherwise prefer the *same* kind first (covers the common DFC face1↔face2
+      case where both faces are Cards), falling back to the opposite kind.
+    """
+    if not names:
+        return []
+    same_repo, same_path = (
+        (cards_repo, "/cards/") if current_kind == "card" else (tokens_repo, "/tokens/")
+    )
+    other_repo, other_path = (
+        (tokens_repo, "/tokens/") if current_kind == "card" else (cards_repo, "/cards/")
+    )
+    self_name = (current_name or "").strip().lower()
+    out: list[dict] = []
+    for name in names:
+        if not name:
+            continue
+        if name.strip().lower() == self_name:
+            order = [(other_repo, other_path), (same_repo, same_path)]
+        else:
+            order = [(same_repo, same_path), (other_repo, other_path)]
+        href: str | None = None
+        for repo, path in order:
+            match = repo.find_by_identity(name)
+            if match is None:
+                ci = repo.find_by_name_ci(name)
+                if ci:
+                    match = ci[0]
+            if match is not None:
+                href = f"{path}{match.id}"
+                break
+        out.append({"name": name, "href": href})
+    return out
+
+
 # ---------- Cards ---------------------------------------------------------
 
 
@@ -31,15 +80,31 @@ def cards_list(request: Request, q: str | None = None, db: Session = Depends(get
 
 @router.get("/cards/{card_id}")
 def cards_detail(request: Request, card_id: int, db: Session = Depends(get_db)):
-    card = CardRepository(db).get(card_id)
+    cards_repo = CardRepository(db)
+    tokens_repo = TokenRepository(db)
+    card = cards_repo.get(card_id)
     if card is None:
         raise HTTPException(404)
     keyword_repo = KeywordRepository(db)
-    keyword_rows = [keyword_repo.get(i) for i in (card.keyword_ids or [])]
+    keyword_rows = [k for k in (keyword_repo.get(i) for i in (card.keyword_ids or [])) if k]
+    keyword_reminders = {k.name.lower(): k.reminder for k in keyword_rows if k.reminder}
+    related = _linkify_related(
+        card.related_cards,
+        current_kind="card",
+        current_name=card.name,
+        cards_repo=cards_repo,
+        tokens_repo=tokens_repo,
+    )
     return templates.TemplateResponse(
         request,
         "cards/detail.html",
-        {"request": request, "card": card, "keywords": [k for k in keyword_rows if k]},
+        {
+            "request": request,
+            "card": card,
+            "keywords": keyword_rows,
+            "keyword_reminders": keyword_reminders,
+            "related": related,
+        },
     )
 
 
@@ -59,15 +124,31 @@ def tokens_list(request: Request, q: str | None = None, db: Session = Depends(ge
 
 @router.get("/tokens/{token_id}")
 def tokens_detail(request: Request, token_id: int, db: Session = Depends(get_db)):
-    row = TokenRepository(db).get(token_id)
+    cards_repo = CardRepository(db)
+    tokens_repo = TokenRepository(db)
+    row = tokens_repo.get(token_id)
     if row is None:
         raise HTTPException(404)
     keyword_repo = KeywordRepository(db)
-    keyword_rows = [keyword_repo.get(i) for i in (row.keyword_ids or [])]
+    keyword_rows = [k for k in (keyword_repo.get(i) for i in (row.keyword_ids or [])) if k]
+    keyword_reminders = {k.name.lower(): k.reminder for k in keyword_rows if k.reminder}
+    related = _linkify_related(
+        row.related_cards,
+        current_kind="token",
+        current_name=row.name,
+        cards_repo=cards_repo,
+        tokens_repo=tokens_repo,
+    )
     return templates.TemplateResponse(
         request,
         "tokens/detail.html",
-        {"request": request, "token": row, "keywords": [k for k in keyword_rows if k]},
+        {
+            "request": request,
+            "token": row,
+            "keywords": keyword_rows,
+            "keyword_reminders": keyword_reminders,
+            "related": related,
+        },
     )
 
 

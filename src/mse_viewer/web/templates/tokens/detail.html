@@ -16,11 +16,17 @@
         <dt>Design type</dt><dd>{{ token.design_type }}</dd>
         <dt>Sets</dt><dd>{{ token.sets|join(", ") or "—" }}</dd>
         <dt>Alt arts</dt><dd>{{ token.alt_arts|join(", ") or "—" }}</dd>
-        <dt>Related cards</dt><dd>{{ token.related_cards|join(", ") or "—" }}</dd>
+        <dt>Alias</dt><dd>{{ token.alias or "—" }}</dd>
+        <dt>Related cards</dt>
+        <dd>
+            {% if related %}
+                {% for r in related %}{% if r.href %}<a href="{{ r.href }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+            {% else %}—{% endif %}
+        </dd>
     </dl>
     <h4>Rule text</h4>
     {% if token.rule_text %}
-        <div class="rule-text">{{ token.rule_text | render_rule_text }}</div>
+        <div class="rule-text">{{ token.rule_text | render_rule_text(keyword_reminders) }}</div>
     {% else %}
         <p>—</p>
     {% endif %}
