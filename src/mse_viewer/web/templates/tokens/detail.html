@@ -20,7 +20,7 @@
         <dt>Related cards</dt>
         <dd>
             {% if related %}
-                {% for r in related %}{% if r.href %}<a href="{{ r.href }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+                {% for r in related %}{% if r.href %}<a href="{{ r.href }}">{{ r.name }}</a>{% else %}{{ r.name }} <small>(missing)</small>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
             {% else %}—{% endif %}
         </dd>
     </dl>

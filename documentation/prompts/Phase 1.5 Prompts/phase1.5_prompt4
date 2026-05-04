@@ -1,0 +1,68 @@
+"Q#3 — where does Triple strike's reminder come from?
+It's captured from the inline <atom-reminder> block in another card's rule_text, not from a keyword: block.
+
+Walkthrough of how a stub gets a reminder body even when the user didn't define the keyword:
+
+The card the user imports has rule_text like <kw-1><key>Triple strike</key></kw-1><atom-reminder>(Whenever this creature attacks, it deals damage three times.)</atom-reminder>.
+parser/tags.py:iter_keyword_invocations extracts every keyword reference from rule_text and picks up the inline reminder body next to each one. Wave 1 added _clean_reminder so the outer parens get peeled.
+The face's keyword_reminders dict (ref → body) carries that captured text into the ingest pipeline.
+pipeline.resolve_keyword_refs_for_face calls KeywordRepository.ensure_stub(ref, reminder=…) (or maybe_backfill_reminder if the row already exists). With no keyword: block, the row is created as is_stub=True and reminder=<captured body>.
+So the reminder body in the DB came from the rule_text of whatever card mentioned the keyword first; the user never explicitly defined it. This is intentional — without it the Keywords list would be a wall of empty rows for every nonce keyword the user invents.
+
+For single-word names, Wave 1 also auto-promoted the row to is_stub=False because the reminder body alone is enough to call it a definition. Multi-word names like Triple strike deliberately stay as stubs because we don't know whether they take parameters, and the formal keyword: block is the source of truth for that. The (no definition yet) annotation is a nudge to fill that block in someday.
+
+If you'd rather have multi-word stubs also auto-promote when a reminder is captured (so Triple strike loses the annotation), it's a one-line broadening of _is_self_defining in repository/keywords.py. Say the word and I'll do it."
+
+
+Here's the thing, I wanted the reminder extraction to happen only for keywords that will no longer be stubs.
+The only reason I didn't want the auto-keyword definition for multiple word keywors is because they may contain parameters that may need handling (e.g. Ward 3 vs Ward 2. The keyword is Ward <cost>, but that would be hard to figure out on its own).
+
+You know what, I see that for a lot of stuff, you captured the correct reminders. So, even for multi-word keywords, if they have a reminder you should auto-promote that keyword.
+
+I just found a gamebreaking bug in how you store evolutions. Why tf do you store them with the name of the unevolved form, rather than the name in the "name:" field input? Like for a card like this:
+card:
+	stylesheet: m15-altered-beyond
+	stylesheet_version: 2020-09-04
+	has_styling: true
+	styling_data:
+		frames: 
+		legend_crown: standard
+		other_options: pokemon evobar
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		level_mana_symbols: magic-mana-large.mse-symbol-font
+		overlay: 
+	notes:
+		Evolve Spell: Zap (To cast this spell, you must discard a Zap.)
+		Evocycling
+		Recurrent Zap deals 2 damage to any target. Put two zap counters on it. Marked damage can’t be removed from it as long as it has zap counters. At the beginning of an upkeep, remove a zap counter and deal 2 damage to it.
+	time_created: 2023-12-29 21:31:08
+	time_modified: 2026-01-16 16:40:01
+	name: Recurrent Zap
+	alias: Evo: Zap
+	casting_cost: R
+	image: image17
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Evolution Instant</word-list-type-en>
+	sub_type: <word-list-spell></word-list-spell>
+	rarity: rare
+	rule_text:
+		<kw-0><nospellcheck><key>Evolve Spell: <param-name>Zap;</param-name></key></nospellcheck></kw-0> <kw-0><nospellcheck><key>Evocycling</key></nospellcheck></kw-0> 
+		This deals 2 damage to any target. If it’s a creature and you control a land that can produce yellow mana <kw-1><nospellcheck><key>shock</key></nospellcheck> that creature.<atom-reminder-custom> <i-auto>(Until the end of the next turn, that creature has power 0 and cannot activate or trigger abilities.)</i-auto></atom-reminder-custom></kw-1>
+		Put two zap counters on it. If it’s a creature, marked damage on it can’t be removed if it has zap counters.
+		At the beginning of a turn, remove a zap counter, deal 2 damage to it, and if it’s a creature and you control a land that can produce yellow mana, <kw-0><nospellcheck><key>shock</key></nospellcheck></kw-0> that creature.
+	flavor_text: <i-flavor></i-flavor>
+	power: 
+	toughness: 
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+
+You store it as "Zap", not "Recurrent Zap". I think whatever you did for the reference either broke it or I never noticed.
+Evolution cards have their own name, aka "Recurrent Zap". They reference the card that is parsed from the alias: "alias: Evo: Zap" -> you parse Zap from here, as well as from the evolve ability: "<kw-0><nospellcheck><key>Evolve Spell: <param-name>Zap;</param-name></key></nospellcheck></kw-0> " -> you parse Zap. But that reference is a completely separate card that should be reffed, not the actual name of the evolution. I told you as new info that if the base card ref doesn't exist in the db yet, in the Related Cards section in the UI you should print a "(missing)" if the base is not in the db yet. You should do so for any related card that's missing, similar to the "stub"/"no definition yet" texts for keyword (if it's there, sorry but I can't check, as now the evos basically ref themselves, the app is really broken)
+
+It used to work, but whatever you did now broke it. Please fix it.

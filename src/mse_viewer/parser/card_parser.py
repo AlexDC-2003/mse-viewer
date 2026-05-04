@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from .models import ParsedCard, ParsedCardFace
 from .notes_parser import parse_notes
 from .tags import (
@@ -9,6 +11,12 @@ from .tags import (
     strip_all_tags,
 )
 from .tree import MseNode
+
+
+# Trailing ``(Evo-I)`` / ``(Evo-T)`` / ``(Evo-II)`` etc. — annotation suffix
+# the alias author writes to disambiguate variants. The annotation belongs in
+# the alias display but not in the related-card name we link against.
+_RE_EVO_SUFFIX = re.compile(r"\s*\(Evo-[A-Za-z0-9]+\)\s*$", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -94,11 +102,14 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
     alias_field = node.get("alias")
     related_from_notes: list[str] = list(notes.related)
     if alias_field:
-        # Format examples seen: ``Evo: Foo``  ``Evolved: Foo, Bar``
+        # Format examples seen: ``Evo: Foo``  ``Evolved: Foo, Bar``  ``Evo: Foo (Evo-I)``
         for prefix in ("Evo:", "Evolved:", "Related:"):
             if alias_field.startswith(prefix):
                 rest = alias_field[len(prefix):]
-                related_from_notes.extend(s.strip() for s in rest.split(",") if s.strip())
+                for raw in rest.split(","):
+                    related_name = _RE_EVO_SUFFIX.sub("", raw).strip()
+                    if related_name:
+                        related_from_notes.append(related_name)
                 break
 
     power = node.get(f"power{suffix}") or None

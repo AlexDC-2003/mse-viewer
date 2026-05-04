@@ -38,15 +38,25 @@ def _has_atom_params(s: str) -> bool:
 
 
 def _is_self_defining(name: str) -> bool:
-    """A single-word keyword name has no spaces and no parameter slots — its
-    captured reminder *is* the full definition (Haste, Trample, Strikethrough).
-    Multi-word or parameterised keywords need an explicit ``keyword:`` block
-    and stay as stubs until that block is imported.
+    """A keyword whose captured reminder body counts as a full definition.
+
+    Any non-empty name without an ``<atom-param>`` slot qualifies — both
+    single-word (Haste, Trample) and multi-word (Triple strike, Ward 3) forms.
+    Names that already contain an ``<atom-param>`` slot still need an
+    explicit ``keyword:`` block because parameterisation is the source of
+    truth for which slots accept which kinds of value.
+
+    Trade-off (decision 2026-05-04): a multi-word stub name like ``Ward 3``
+    is now auto-promoted on first import. If the user later imports a
+    formal ``Ward <atom-param>cost</atom-param>`` block, the existing
+    absorption logic only merges ``is_stub=True`` rows, so the auto-
+    promoted ``Ward 3`` / ``Ward 2`` rows stay as separate non-stub
+    keywords alongside the parameterised one. The user accepted this in
+    exchange for not having to manually fill in reminders that the parser
+    already captured correctly.
     """
     n = (name or "").strip()
     if not n:
-        return False
-    if any(ch.isspace() for ch in n):
         return False
     return not _has_atom_params(n)
 
