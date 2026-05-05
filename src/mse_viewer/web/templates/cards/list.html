@@ -3,8 +3,9 @@
 {% block content %}
 <h1>Cards <small>({{ cards|length }})</small></h1>
 <form action="/cards" method="get">
-    <input name="q" value="{{ q }}" placeholder="Search by name…">
+    <input name="q" value="{{ q }}" placeholder="Search by name, rule text, or flavor…">
     <button type="submit">Search</button>
+    <a href="/cards/new" role="button" class="secondary">New card</a>
 </form>
 {% if cards %}
 <table>

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{% if is_new %}New card{% else %}Edit {{ card.name }}{% endif %} — mse-viewer{% endblock %}
+{% block content %}
+<h1>{% if is_new %}New card{% else %}Edit card: {{ card.name }}{% endif %}</h1>
+<form action="{{ action }}" method="post">
+    <fieldset>
+        <legend>Identity</legend>
+        <label>Name (identity, unique)
+            <input name="name" required value="{{ card.name if card else "" }}">
+        </label>
+        <label>Display name
+            <input name="display_name" value="{{ card.display_name if card else "" }}">
+        </label>
+        <label>Card type
+            <input name="card_type" value="{{ card.card_type if card else "" }}">
+        </label>
+        <label>Card subtype
+            <input name="card_subtype" value="{{ card.card_subtype or '' if card else '' }}">
+        </label>
+        <label>Alias
+            <input name="alias" value="{{ card.alias or '' if card else '' }}">
+        </label>
+    </fieldset>
+    <fieldset>
+        <legend>Stats</legend>
+        <div class="grid">
+            <label>Casting cost <input name="casting_cost" value="{{ card.casting_cost or '' if card else '' }}"></label>
+            <label>Colors (csv) <input name="colors" value="{{ card.colors|join(', ') if card else '' }}"></label>
+            <label>Power <input name="power" value="{{ card.power or '' if card else '' }}"></label>
+            <label>Toughness <input name="toughness" value="{{ card.toughness or '' if card else '' }}"></label>
+            <label>Starting loyalty <input type="number" name="starting_loyalty" value="{{ card.starting_loyalty if card and card.starting_loyalty is not none else '' }}"></label>
+            <label>Rarity <input name="rarity" value="{{ card.rarity if card else 'common' }}"></label>
+            <label>Power level <input type="number" name="power_level" value="{{ card.power_level if card and card.power_level is not none else '' }}"></label>
+            <label>Design type <input name="design_type" value="{{ card.design_type if card else 'Normal' }}"></label>
+        </div>
+        <label><input type="checkbox" name="printed" {% if card and card.printed %}checked{% endif %}> Printed</label>
+    </fieldset>
+    <fieldset>
+        <legend>Text</legend>
+        <label>Rule text <textarea name="rule_text" rows="6">{{ card.rule_text or '' if card else '' }}</textarea></label>
+        <label>Abilities <textarea name="abilities" rows="4">{{ card.abilities or '' if card else '' }}</textarea></label>
+        <label>Flavor text <textarea name="flavor_text" rows="3">{{ card.flavor_text or '' if card else '' }}</textarea></label>
+        <label>Notes <textarea name="notes" rows="3">{{ card.notes or '' if card else '' }}</textarea></label>
+    </fieldset>
+    <fieldset>
+        <legend>Lists (comma-separated)</legend>
+        <label>Sets <input name="sets" value="{{ card.sets|join(', ') if card else '' }}"></label>
+        <label>Alt arts <input name="alt_arts" value="{{ card.alt_arts|join(', ') if card else '' }}"></label>
+        <label>Related cards <input name="related_cards" value="{{ card.related_cards|join(', ') if card else '' }}"></label>
+        <label>Keyword IDs <input name="keyword_ids" value="{{ card.keyword_ids|join(', ') if card else '' }}"></label>
+    </fieldset>
+    <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
+    {% if not is_new %}
+        <a href="/cards/{{ card.id }}" role="button" class="secondary">Cancel</a>
+    {% else %}
+        <a href="/cards" role="button" class="secondary">Cancel</a>
+    {% endif %}
+</form>
+{% if not is_new %}
+<form action="/cards/{{ card.id }}/delete" method="post" onsubmit="return confirm('Delete this card?')">
+    <button type="submit" class="contrast">Delete</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -16,4 +16,5 @@
     <div class="rule-text">{{ keyword.rules | render_text or "—" }}</div>
 </article>
 <a href="/keywords" role="button" class="secondary">Back</a>
+<a href="/keywords/{{ keyword.id }}/edit" role="button">Edit</a>
 {% endblock %}

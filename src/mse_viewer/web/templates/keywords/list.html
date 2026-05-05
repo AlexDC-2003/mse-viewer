@@ -2,6 +2,12 @@
 {% block title %}Keywords — mse-viewer{% endblock %}
 {% block content %}
 <h1>Keywords <small>({{ keywords|length }})</small></h1>
+<form action="/keywords" method="get">
+    <input name="q" value="{{ q }}" placeholder="Search by name, reminder, or rules…">
+    <button type="submit">Search</button>
+    <a href="/keywords/stubs" role="button" class="secondary">Stubs needing definition</a>
+    <a href="/keywords/new" role="button" class="secondary">New</a>
+</form>
 {% if keywords %}
 <table>
     <thead><tr><th>Match</th><th>Source</th><th>Params</th><th>Pseudo?</th><th>Stub?</th></tr></thead>

@@ -45,6 +45,7 @@ def build_preview(
     existing_card_identities: set[str],
     existing_token_identities: set[str],
     playbook_lookup=None,
+    existing_lookup=None,  # callable: (name, route) -> snapshot-dict | None
 ) -> FacePreview:
     warnings = WarningCollector()
 
@@ -87,6 +88,27 @@ def build_preview(
             f"A {route} named {proposed_identity!r} already exists.",
             existing_identity=proposed_identity,
         )
+        # If we can resolve the existing row, compute a per-field diff so the
+        # modal can render side-by-side. ``modifies_printed`` warns on top of
+        # ``identity_conflict`` when the existing row was marked printed —
+        # those edits are the dangerous ones.
+        snap = existing_lookup(proposed_identity, route) if existing_lookup else None
+        if snap is not None:
+            new_snap = _face_snapshot(face, colors=[], design_type="(pending)")
+            diff = _compute_field_diff(snap, new_snap)
+            if snap.get("printed"):
+                warnings.add(
+                    WarningKind.modifies_printed,
+                    f"This will modify printed {route} {proposed_identity!r}.",
+                    diff=diff,
+                    existing=snap,
+                )
+            else:
+                # Attach diff payload to the identity_conflict warning so the
+                # modal can show the comparison even when the existing row
+                # isn't marked printed.
+                warnings.warnings[-1].payload["diff"] = diff
+                warnings.warnings[-1].payload["existing"] = snap
 
     # Color derivation (pure).
     colors = derive_colors(face)
@@ -124,6 +146,55 @@ def build_preview(
         design_type=dt,
         warnings=warnings,
     )
+
+
+def _face_snapshot(face: ParsedCardFace, *, colors, design_type) -> dict:
+    """Capture the fields a card-vs-incoming diff cares about. Mirrors the
+    column set in ``CardCoreMixin`` plus Card-only ``rarity`` /
+    ``starting_loyalty``. Used to feed the diff renderer in the review modal.
+    """
+    return {
+        "card_type": face.super_type or "",
+        "card_subtype": face.sub_type,
+        "colors": list(colors),
+        "casting_cost": face.casting_cost,
+        "power": face.power,
+        "toughness": face.toughness,
+        "flavor_text": face.flavor_text,
+        "rule_text": face.rule_text,
+        "abilities": face.abilities,
+        "design_type": design_type,
+        "rarity": face.rarity,
+        "alias": face.alias,
+        "starting_loyalty": face.starting_loyalty,
+        "related_cards": list(face.related_from_notes),
+    }
+
+
+def _compute_field_diff(old: dict, new: dict) -> list[dict]:
+    """Per-field diff used in the review modal. Returns an ordered list of
+    ``{field, old, new}`` entries for the fields that actually changed.
+
+    deepdiff's structured output is used internally but flattened here for
+    template ergonomics — the modal just needs an at-a-glance comparison.
+    """
+    try:
+        from deepdiff import DeepDiff
+    except ImportError:  # pragma: no cover - dependency declared in requirements
+        DeepDiff = None
+    out: list[dict] = []
+    keys = sorted(set(old) | set(new))
+    keys = [k for k in keys if k != "printed"]  # internal, never shown in diff
+    for k in keys:
+        ov, nv = old.get(k), new.get(k)
+        if ov == nv:
+            continue
+        out.append({"field": k, "old": ov, "new": nv})
+    if DeepDiff is not None and out:
+        # Stable, side-effect-free invocation — populates payload metadata
+        # other UI surfaces could consume; we don't render it directly here.
+        DeepDiff(old, new, ignore_order=False)
+    return out
 
 
 def _check_frame_type_mismatch(

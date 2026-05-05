@@ -113,6 +113,35 @@ class KeywordRepository:
             stmt = stmt.where(Keyword.is_stub.is_(False))
         return list(self.db.execute(stmt).scalars())
 
+    def list_stubs(self) -> list[Keyword]:
+        """Stub-only listing for the dashboard."""
+        stmt = select(Keyword).where(Keyword.is_stub.is_(True)).order_by(Keyword.name)
+        return list(self.db.execute(stmt).scalars())
+
+    def search(self, query: str, *, limit: int = 200) -> list[Keyword]:
+        """Match ``query`` against keyword name, reminder, and rules text;
+        whitelist tags (``<i>``/``<b>``/``<em>``) are stripped from the body
+        columns the same way :meth:`CardRepository.search` does it."""
+        q = f"%{query.strip().lower()}%"
+        tag_re = r"</?(i|b|em)>"
+        reminder_clean = func.regexp_replace(
+            func.coalesce(func.lower(Keyword.reminder), ""), tag_re, "", "gi"
+        )
+        rules_clean = func.regexp_replace(
+            func.coalesce(func.lower(Keyword.rules), ""), tag_re, "", "gi"
+        )
+        stmt = (
+            select(Keyword)
+            .where(
+                func.lower(Keyword.name).like(q)
+                | reminder_clean.like(q)
+                | rules_clean.like(q)
+            )
+            .order_by(Keyword.name)
+            .limit(limit)
+        )
+        return list(self.db.execute(stmt).scalars())
+
     def get(self, id_: int) -> Keyword | None:
         return self.db.get(Keyword, id_)
 

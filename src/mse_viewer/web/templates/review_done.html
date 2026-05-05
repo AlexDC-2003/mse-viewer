@@ -7,8 +7,14 @@
        (of which <strong>{{ session.auto_committed_count }}</strong> auto-passed without review) ·
        <strong>{{ session.skipped|length }}</strong> skipped/rejected ·
        total parsed <strong>{{ session.parsed_total }}</strong>.</p>
+    {% if session.deck_id %}
+    <p>Deck created: <a href="/decks/{{ session.deck_id }}">view deck</a>.</p>
+    {% elif session.deck_plan %}
+    <p><strong>Deck not created.</strong> See the action log for details.</p>
+    {% endif %}
     <ul>
         <li><a href="/cards">Browse cards</a></li>
+        <li><a href="/decks">Browse decks</a></li>
         <li><a href="/log?kind=action">Review action log</a></li>
         <li><a href="/upload">Upload another set</a></li>
     </ul>

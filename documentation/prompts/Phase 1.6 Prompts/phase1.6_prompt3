@@ -1,0 +1,85 @@
+Bug 1: Search doesn't include Alias, aka can't search for "Evo:" (should it though?, it's a bit pointless)
+
+Bug 2: Trying to insert a new card throws an error page with:
+"{"detail":[{"type":"int_parsing","loc":["path","card_id"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"new"}]}"
+
+Bug 3: Why is there both a "Rule text" field and an "Abilities" field for cards & tokens when I try to update them? Especially since it seems they have the exact same information? Are there 2 separate columns in the DB? Because then I think one column should be dropped entirely
+
+You misunderstood this fragment:
+"k) the most important: parsing the "rules_text" field.
+- The keywords have their own DB we will get to. I want you to extract all the keywords, nicely indicated by the <key> tag, and check it against the keyword DB, and if not existent, add it there
+- Keywords should also still appear in the card data, but it should appear twice - once, in a specialized "Keywords" attributes, that should only contain links to the actual keywords in the db, stripped of their parameters - and secondly, they should still appear in the "abilities" attribute alongside other attributes, this time alongside their parameters.
+- Other abilities in "rules_text" should appear in the "abilities" attribute"
+
+What I meant was, from the input "rules_text" field in the input file, you should obtain the keywords and put them into a keyword ref attribute, and an abilities attribute that has both the keywords as they are currently presented and the other abilities. You shouldn't have 2 columns abilities and rules text.
+Unless there is a meaningful difference between the 2 columns, in which case correct me, drop one of the columns.
+
+Bug 4: When editing cards & tokens, doing so by the "Keyword IDs" is not useful, as I don't know them. In the edit page, I should be able to see & introduce the keyword words in that field, then have the UI translate it to IDs (and then they may be stored by their id or however the backend stores them). When I introduce a parameterized keyword such as "Ammo 2", link it to the actual keyword "Ammo <number>" as usual.
+
+Bug 5: Minor, when I introduced for card X a related card named "Ackey The Archer", the UI correctly linked to the card I wanted named "Ackey the Archer". But as you see, that "the" is not capitalized, and while it links correctly, upon linking on X's detail page the related card is still "Ackey The Archer". Please upon linking also check if the names match in capitalization and auto-correct the related card name in capitalization (just capitalization, not misspells or anything else)
+
+Card/token update feature seems to work well otherwise
+
+Bug 6: Tokens shouldn't have a "Sets" attribute. You can outright drop that column, I don't need to store it at all.
+
+Bug 7: Search doesn't also include the Related Cards field, the Sets field, design type field, if it's printed or not, can't search by P/T or by cost, color
+In fact, the entire search functionality should be overhauled later down the line.
+I would like to keep the current search bar, but also have an "Advanced Search" which opens a new page where I can search by inputting specific values for each value, aka I want that page to have prompts for all the fields, so I can input there whatever values I want.
+Also, I would like some negation operator, that excludes terms if they have a - in front.
+For example: Vigilance -Haste -"This enters tapped" should search for cards with Vigilance, but that lack Haste and that "This enters tapped" string.
+But again, this should be done later, closer to the full UI. Mark it as a todo later "advanced search"
+
+For now, at least include the Related Cards field & card types and subtypes, so you can search by name, creature types & subtypes, related cards, keywords & abilities (though the abilities field should include the keywords anyway) (also applies to tokens db search)
+
+Change 8: With the whole missing card funtionality, I think having 2 methods of dealing objects - keyword stubs and missing card refs - is too much. One should be kept, for simplicity and to have the same across all app .
+Mark this as a todo later.
+
+Bug 9: DFC stylesheet not recognized and triggers a review modal. But otherwise the card parsing is working well and doesn't need changes. Just, "stylesheet: m15-mainframe-dfc" should be auto-attributed the "Normal" design type and shouldnt trigger reviews anymore just due to stylesheet not recognized.
+To Do later - I will need to redefine the entire "Design type" field. 
+
+For now, please, in your output, currently list all stylesheets, and all design type fields, and how they relate:
+Design Type - Derived from Stylesheet - Stylesheet corresponds to
+In this list, take into account all derivations and mark them as separate columns e.g. evos are marked as normal, but come from m15-altered-beyond, so a column should be:
+Normal - m15 - normal cards
+Normal - m15-altered-beyond - for evolutions
+
+Bug 10: Also mark as todo later.
+Changing a keyword's name changes it in the card keyword refs section, but doesn't change it in the card's rule text/ability section. Also changing it's reminder doesn't change it in the card's rule text/ability section. e.g.
+I changed Armor <number>'s name to Armoring and its reminder, but the card still is like this:
+
+Rule text
+Evolve: Sparky (To cast this spell, you must transform a Sparky.)
+Evocycling (Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)
+Banding, first strike, haste, splash 2
+When you evolve into Sparky Tower, it gains armor 2. (The next time a source would deal damage to this creature, prevent 2 of that damage.) - name not changed, and reminder not modified
+
+Keywords
+Evolve: <name>
+Evocycling
+Banding (stub)
+First strike
+Haste
+Splash <number>
+Armoring <number> - link still works, and this name is updated
+Stun counter
+
+When I update a keyword, the system should update the reminder/keyword name in the rules text for all the cards with that keyword.
+
+Bug 11: here's a card:
+Evolve: Grizzly Bear (To cast this spell, you must transform a Grizzly Bear.)
+Evocycling (Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)
+Haste, vigilance, reach, resilient (Effects that say “destroy” don’t destroy this creature.)
+Omni-strike (Whenever this creature attacks and deals combat damage, it deals that much damage to each creature the defending player controls.)
+Hunt (Whenever a creature enters the battlefield under an opponent’s control, it fights this creature.)
+Marked damage on Alpha Grizzly can’t be removed.
+
+"Haste, vigilance, reach, resilient (Effects that say “destroy” don’t destroy this creature.)" -> this line of keywords still hasn't been separated, despite using comma-separators
+
+Bug 12: The dynamic keyword-function filling shouldn't trigger in the keyword detailed view, only for the card detailed views. Right now it triggers in the keyword-detail views as well. Check all, but I know 100% {if has_pt() then "creature" else if is_artifact(card.super_type) then "artifact" else "permanent"}. right now is autohandled in the keyword detailed view as well.
+
+Change 13: Create an explicit "keyword rejection" list. Whenever you find/parse in any way a keyword on that list, reject it as a keyword. Such a keyword is "Evolve <number>". Then, if the source is from a file, make a log with that file warning me of its deletion. If you find it on a card, make a log with that card warning me that you found it there.
+
+Change 14: Mark the following as todolater for the full UI change. 
+The "Sets" and "UI" column should be the last columns/rows printed on the UI in both table and detail view, and should only be visible if you tick a global "Additional Information" option in the UI (the option should persist when you change through the webpages of the app). "Design Type" & "Alt arts" should also be in that set, but it should only appear in the detail view when that global option is ticked.
+Also, hide the P/T & Alias fields in the detail view UI for cards that don't have it (aka the fields are empty), like you hide Starting Loyalty for cards that don't have it.
+

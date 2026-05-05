@@ -262,12 +262,65 @@ def tokens_detail(request: Request, token_id: int, db: Session = Depends(get_db)
 
 
 @router.get("/keywords")
-def keywords_list(request: Request, db: Session = Depends(get_db)):
-    rows = KeywordRepository(db).list()
+def keywords_list(
+    request: Request,
+    q: str | None = None,
+    db: Session = Depends(get_db),
+):
+    repo = KeywordRepository(db)
+    rows = repo.search(q) if q else repo.list()
     return templates.TemplateResponse(
         request,
         "keywords/list.html",
+        {"request": request, "keywords": rows, "q": q or ""},
+    )
+
+
+@router.get("/keywords/stubs")
+def keywords_stubs(request: Request, db: Session = Depends(get_db)):
+    """Dashboard for keyword stubs needing definition."""
+    rows = KeywordRepository(db).list_stubs()
+    return templates.TemplateResponse(
+        request,
+        "keywords/stubs.html",
         {"request": request, "keywords": rows},
+    )
+
+
+@router.get("/related/missing")
+def related_missing(request: Request, db: Session = Depends(get_db)):
+    """List every distinct ``related_cards`` entry across Cards/Tokens that
+    has no matching identity in either DB. Surfaces broken / unfulfilled
+    cross-links the user might still want to author."""
+    cards_repo = CardRepository(db)
+    tokens_repo = TokenRepository(db)
+    card_identities = cards_repo.existing_identities()
+    token_identities = tokens_repo.existing_identities()
+    known: set[str] = set()
+    for n in card_identities | token_identities:
+        if n:
+            known.add(n.lower())
+    missing: dict[str, list[dict]] = {}
+    for row in cards_repo.list():
+        for ref in row.related_cards or []:
+            if ref and ref.strip().lower() not in known:
+                missing.setdefault(ref, []).append(
+                    {"name": row.name, "kind": "card", "id": row.id}
+                )
+    for row in tokens_repo.list():
+        for ref in row.related_cards or []:
+            if ref and ref.strip().lower() not in known:
+                missing.setdefault(ref, []).append(
+                    {"name": row.name, "kind": "token", "id": row.id}
+                )
+    rows = sorted(
+        ({"target": k, "referenced_by": v} for k, v in missing.items()),
+        key=lambda r: r["target"].lower(),
+    )
+    return templates.TemplateResponse(
+        request,
+        "related_missing.html",
+        {"request": request, "rows": rows},
     )
 
 

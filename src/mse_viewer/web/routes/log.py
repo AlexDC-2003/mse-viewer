@@ -12,6 +12,10 @@ from mse_viewer.web.templating import templates
 router = APIRouter(prefix="/log", tags=["log"])
 
 
+def _is_htmx(request: Request) -> bool:
+    return request.headers.get("HX-Request", "").lower() == "true"
+
+
 @router.get("")
 def log_list(
     request: Request,
@@ -35,25 +39,28 @@ def log_list(
 
 
 @router.post("/{entry_id}/resolve")
-def resolve(entry_id: int, db: Session = Depends(get_db)):
-    repo = LogRepository(db)
-    entry = repo.get(entry_id)
-    if entry is None:
-        raise HTTPException(404)
-    repo.transition(entry, LogState.resolved)
-    db.commit()
-    # Anchor on the row so the browser scrolls back to where the user was.
-    return RedirectResponse(url=f"/log#entry-{entry_id}", status_code=303)
+def resolve(request: Request, entry_id: int, db: Session = Depends(get_db)):
+    return _transition(request, entry_id, LogState.resolved, db)
 
 
 @router.post("/{entry_id}/reopen")
-def reopen(entry_id: int, db: Session = Depends(get_db)):
+def reopen(request: Request, entry_id: int, db: Session = Depends(get_db)):
+    return _transition(request, entry_id, LogState.open, db)
+
+
+def _transition(request: Request, entry_id: int, new_state: LogState, db: Session):
     repo = LogRepository(db)
     entry = repo.get(entry_id)
     if entry is None:
         raise HTTPException(404)
-    repo.transition(entry, LogState.open)
+    repo.transition(entry, new_state)
     db.commit()
+    if _is_htmx(request):
+        # Swap just the row in place — no redirect, no scroll reflow.
+        return templates.TemplateResponse(
+            request, "log/_row.html", {"request": request, "e": entry}
+        )
+    # Anchor on the row so the browser scrolls back to where the user was.
     return RedirectResponse(url=f"/log#entry-{entry_id}", status_code=303)
 
 

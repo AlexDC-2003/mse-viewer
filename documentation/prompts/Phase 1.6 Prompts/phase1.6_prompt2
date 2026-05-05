@@ -1,0 +1,12 @@
+Good, let's deal with all the other stuff leftover:
+
+- **Deck ingest flow**. Schema is in; we need: pre-upload form for deck mode (format, commander dropdown, package, related-decks), a parser for deck files, per-card review modal reused, deck commit step. Quantities are encoded as **repeated `card:` entries with the same name** (a 4-of Zap = four `card:` blocks named Zap) — the deck parser collapses repeats into `DeckCard.quantity`.
+- **Manual CRUD for cards / keywords / decks**. init_prompt_3 says "manual edits are authoritative". Currently you can only add things via set-file ingest. Add edit/create forms for each (the repos already have the upsert methods).
+- **Pretty diff viewer in the review modal**. Currently the "modifies printed card" warning is just text. Phase 2 should render side-by-side old/new for each changed field. `deepdiff` is in init_prompt's stack list for this reason.
+- **Stub tracking dashboard** (added 2026-04-30). Every `is_stub=True` keyword is a TODO — once a real definition exists the absorption logic runs automatically (verified 2026-04-30), but a "Stubs needing definition" page would let you eyeball the queue without hand-querying. Same idea for missing Related Cards: they're currently just strings on `related_cards` with no row to point at — Phase 2 should add a real "missing referenced cards" view.
+- **Tag-insensitive search/queries** (added 2026-04-30). Free-text search across `rule_text` / `flavor_text` should ignore the preserved ``<i>...</i>`` (and any future whitelisted) tags so a query for *"This creature deals first-strike"* matches a row stored with the italic markup. Implement by stripping the whitelist tags in a normalized search column or via a Postgres `regexp_replace` inside the WHERE clause (init_prompt_5 #12).
+- **HTMX-inline log transitions** (added 2026-04-30). Eliminate the redirect entirely so the page never reflows (init_prompt_5 #11 — scroll anchor is the Phase 1 mitigation).
+- **IngestSession persistence (optional)**. Sessions are in-process memory; a server restart loses them. If you ingest a 200-card set and walk away mid-review, this matters. Easy fix: serialize to an `ingest_sessions` table.
+- **Multi-face cross-link FK strengthening**. Face 1 ↔ face 2 link is currently a name string in `related_cards`. Works, but a `card_face` row would let UI navigate without a name lookup. Defer unless a perf or correctness issue surfaces.
+
+Do all those please

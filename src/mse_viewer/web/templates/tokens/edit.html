@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{% if is_new %}New token{% else %}Edit {{ token.name }}{% endif %} — mse-viewer{% endblock %}
+{% block content %}
+<h1>{% if is_new %}New token{% else %}Edit token: {{ token.name }}{% endif %}</h1>
+<form action="{{ action }}" method="post">
+    <fieldset>
+        <legend>Identity</legend>
+        <label>Name (identity, unique)
+            <input name="name" required value="{{ token.name if token else '' }}">
+        </label>
+        <label>Display name
+            <input name="display_name" value="{{ token.display_name if token else '' }}">
+        </label>
+        <label>Card type
+            <input name="card_type" value="{{ token.card_type if token else '' }}">
+        </label>
+        <label>Card subtype
+            <input name="card_subtype" value="{{ token.card_subtype or '' if token else '' }}">
+        </label>
+        <label>Alias
+            <input name="alias" value="{{ token.alias or '' if token else '' }}">
+        </label>
+    </fieldset>
+    <fieldset>
+        <legend>Stats</legend>
+        <div class="grid">
+            <label>Casting cost <input name="casting_cost" value="{{ token.casting_cost or '' if token else '' }}"></label>
+            <label>Colors (csv) <input name="colors" value="{{ token.colors|join(', ') if token else '' }}"></label>
+            <label>Power <input name="power" value="{{ token.power or '' if token else '' }}"></label>
+            <label>Toughness <input name="toughness" value="{{ token.toughness or '' if token else '' }}"></label>
+            <label>Design type <input name="design_type" value="{{ token.design_type if token else 'Normal' }}"></label>
+        </div>
+        <label><input type="checkbox" name="printed" {% if token and token.printed %}checked{% endif %}> Printed</label>
+    </fieldset>
+    <fieldset>
+        <legend>Text</legend>
+        <label>Rule text <textarea name="rule_text" rows="6">{{ token.rule_text or '' if token else '' }}</textarea></label>
+        <label>Abilities <textarea name="abilities" rows="4">{{ token.abilities or '' if token else '' }}</textarea></label>
+        <label>Flavor text <textarea name="flavor_text" rows="3">{{ token.flavor_text or '' if token else '' }}</textarea></label>
+        <label>Notes <textarea name="notes" rows="3">{{ token.notes or '' if token else '' }}</textarea></label>
+    </fieldset>
+    <fieldset>
+        <legend>Lists (comma-separated)</legend>
+        <label>Sets <input name="sets" value="{{ token.sets|join(', ') if token else '' }}"></label>
+        <label>Alt arts <input name="alt_arts" value="{{ token.alt_arts|join(', ') if token else '' }}"></label>
+        <label>Related cards <input name="related_cards" value="{{ token.related_cards|join(', ') if token else '' }}"></label>
+        <label>Keyword IDs <input name="keyword_ids" value="{{ token.keyword_ids|join(', ') if token else '' }}"></label>
+    </fieldset>
+    <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
+    {% if not is_new %}
+        <a href="/tokens/{{ token.id }}" role="button" class="secondary">Cancel</a>
+    {% else %}
+        <a href="/tokens" role="button" class="secondary">Cancel</a>
+    {% endif %}
+</form>
+{% if not is_new %}
+<form action="/tokens/{{ token.id }}/delete" method="post" onsubmit="return confirm('Delete this token?')">
+    <button type="submit" class="contrast">Delete</button>
+</form>
+{% endif %}
+{% endblock %}

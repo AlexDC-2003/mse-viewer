@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Decks — mse-viewer{% endblock %}
 {% block content %}
-<h1>Decks</h1>
+<h1>Decks <small>({{ decks|length }})</small></h1>
+<p>
+    <a href="/decks/new" role="button" class="secondary">New deck (manual)</a>
+    <a href="/upload?mode=deck" role="button" class="secondary">Import deck file</a>
+</p>
 {% if decks %}
 <table>
     <thead><tr><th>Name</th><th>Format</th><th>Theme</th><th>Archetype</th><th>Size</th></tr></thead>

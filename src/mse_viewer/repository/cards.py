@@ -48,10 +48,26 @@ class _BaseCardRepo:
         row.related_cards = merge_unique(row.related_cards, [n for n in names if n])
 
     def search(self, query: str, *, limit: int = 200) -> list:
+        """Match ``query`` (case-insensitive substring) against name, rule_text
+        and flavor_text. Whitelist tags (``<i>``, ``</i>``, ``<b>``, ``</b>``,
+        ``<em>``, ``</em>``) are stripped from the text columns before
+        matching so a query for ``first-strike`` matches text stored as
+        ``<i>first-strike</i>``."""
         q = f"%{query.strip().lower()}%"
+        tag_re = r"</?(i|b|em)>"
+        rule_clean = func.regexp_replace(
+            func.coalesce(func.lower(self.model.rule_text), ""), tag_re, "", "gi"
+        )
+        flavor_clean = func.regexp_replace(
+            func.coalesce(func.lower(self.model.flavor_text), ""), tag_re, "", "gi"
+        )
         stmt = (
             select(self.model)
-            .where(func.lower(self.model.name).like(q))
+            .where(
+                func.lower(self.model.name).like(q)
+                | rule_clean.like(q)
+                | flavor_clean.like(q)
+            )
             .order_by(self.model.name)
             .limit(limit)
         )

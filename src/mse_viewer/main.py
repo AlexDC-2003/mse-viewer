@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from mse_viewer.web.routes import browse, home, log, review, upload
+from mse_viewer.web.routes import browse, edit, home, log, review, upload
 
 
 def create_app() -> FastAPI:
@@ -25,6 +25,7 @@ def create_app() -> FastAPI:
     app.include_router(review.router)
     app.include_router(browse.router)
     app.include_router(log.router)
+    app.include_router(edit.router)
     return app
 
 
