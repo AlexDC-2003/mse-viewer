@@ -1,0 +1,231 @@
+Ok, so first, a bug: Not all reminder text functions are evaluated. Example:
+"Permanents you don't control that are dealt damage by this {if has_pt() then "creature"} are exiled."
+
+Next, this is phase 1.6. Let's start with some more leftover features from previous phases:
+
+- **Planeswalker parsing** (added 2026-04-30). The Planeswalker frame uses a different shape: loyalty cost lines (`+1:`, `-X:`, `0:`), starting loyalty, ability tiers — none of which the Phase 1 parser recognises. Need a planeswalker-specific face extractor + a place to store the loyalty bands.
+- **Emblem parsing** (added 2026-04-30). Emblems are a thinner Planeswalker output (just rule_text, no cost / P/T / loyalty); they may be modelled as Tokens with a special design_type or a separate `emblems` table. Decide before writing the parser.
+- **Saga parsing** (added 2026-04-30). Sagas have ordered chapters (`I`, `II`, `III`, …) with their own rule_text bodies and an "after the last chapter, sacrifice" rule. Needs a chapter list on the card record.
+- **Leyline parsing** (added 2026-04-30). Leylines aren't structurally novel but they trip the design-type rules: most are on `m15-altered-beyond` with a self-replacing-from-hand ability that may want a tagged Design Type or a special note for the player view.
+
+1. Planeswalker parsing
+
+A planeswalker input is like this in the input file:
+
+card:
+	stylesheet: m15-mainframe-planeswalker
+	stylesheet_version: 2024-09-01
+	has_styling: false
+	notes: 
+	time_created: 2024-03-01 04:41:03
+	time_modified: 2026-03-28 03:11:30
+	name: Kathleen, Frog Queen
+	casting_cost: 2WU
+	image: 
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Legendary Planeswalker</word-list-type-en>
+	sub_type: <word-list-planeswalker>Kathleen</word-list-planeswalker><soft><atom-sep> </atom-sep></soft><word-list-planeswalker></word-list-planeswalker>
+	rarity: common
+	rule_text: 
+	flavor_text: <i-flavor></i-flavor>
+	loyalty_cost_1: 
+	loyalty_cost_2: +1
+	loyalty_cost_3: -3
+	loyalty_cost_4: -8
+	loyalty_cost_5: 
+	loyalty: 4
+	level_1_text: When Kathleen, Frog Queen enters, you <kw-1><nospellcheck><key>become the monarch</key></nospellcheck>.<atom-reminder-action> <i-auto>(The monarch draws a card at the beginning of their end step. Whenever the monarch is dealt combat damage by a creature, its controller becomes the monarch.)</i-auto></atom-reminder-action></kw-1>
+	level_2_text: <margin:130:0:0>Create a 1/1 Frog token.</margin:130:0:0>
+	level_3_text: <margin:130:0:0>Target creature or artifact transforms into a 1/1 Frog with no abilities.</margin:130:0:0>
+	level_4_text: <margin:130:0:0>If you are the monarch, you control target opponent during their next turn.</margin:130:0:0>
+	level_5_text: 
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+	special_text:
+		When Kathleen, Frog Queen enters, you <kw-1><nospellcheck><key>become the monarch</key></nospellcheck>.<atom-reminder-action> <i-auto>(The monarch draws a card at the beginning of their end step. Whenever the monarch is dealt combat damage by a creature, its controller becomes the monarch.)</i-auto></atom-reminder-action></kw-1>
+		[+1]: <margin:130:0:0>Create a 1/1 Frog token.</margin:130:0:0>
+		[-3]: <margin:130:0:0>Target creature or artifact transforms into a 1/1 Frog with no abilities.</margin:130:0:0>
+		[-8]: <margin:130:0:0>If you are the monarch, you control target opponent during their next turn.</margin:130:0:0>
+
+It will usually have this stylesheet - "stylesheet: m15-mainframe-planeswalker" -, but you can 100% confirm it's a Planeswalker by its supertype - "super_type: <word-list-type-en>Legendary Planeswalker</word-list-type-en>". So the supertype should be primary way to idenfity planeswalkers (I use stylesheet that have "planeswalker" in the name for other stuff). 
+
+It's going to be tricky, as planeswalkers have completely different features from cards. They need the usual name, design type, rarity, alias, notes etc, but they also have a special "loyalty: 4" that should correspond to an attribute "Starting Loyalty" that only planeswalkers should have.
+
+As for its abilities, they are not defined by the "rule_text:" field in the input, but by "loyalty_cost_1:" type fields and "level_1_text:". Planeswalkers have multiple abilities, each having a loyalty cost, and a level ability text. They correspond one by one, so for example, for Kathleen:
+- "loyalty_cost_1: " and "level_1_text: When Kathleen, Frog Queen enters, you <kw-1><nospellcheck><key>become the monarch</key></nospellcheck>.<atom-reminder-action> <i-auto>(The monarch draws a card at the beginning of their end step. Whenever the monarch is dealt combat damage by a creature, its controller becomes the monarch.)</i-auto></atom-reminder-action></kw-1>" correspond together.
+- "loyalty_cost_2: +1" corresponds to "level_2_text: <margin:130:0:0>Create a 1/1 Frog token.</margin:130:0:0>"
+- etc.
+- "loyalty_cost_5: " corresponds to "level_5_text: ". Note, this is basically an empty ability, and should be discarded if both cost and level fields are empty
+
+I see the "special_text" field has exactly the rule text in the format I want (I didn't know this field existed until now)
+"special_text:
+		When Kathleen, Frog Queen enters, you <kw-1><nospellcheck><key>become the monarch</key></nospellcheck>.<atom-reminder-action> <i-auto>(The monarch draws a card at the beginning of their end step. Whenever the monarch is dealt combat damage by a creature, its controller becomes the monarch.)</i-auto></atom-reminder-action></kw-1>
+		[+1]: <margin:130:0:0>Create a 1/1 Frog token.</margin:130:0:0>
+		[-3]: <margin:130:0:0>Target creature or artifact transforms into a 1/1 Frog with no abilities.</margin:130:0:0>
+		[-8]: <margin:130:0:0>If you are the monarch, you control target opponent during their next turn.</margin:130:0:0>"
+
+I want this field basically to make up the rules text attribute for planeswalkers. Of course, strip unnecessary tags, especially the <margin> tags. But also take note, I'm not sure if this is going to be 100% ok, and at some point we may pivot to using the actual loyalty_cost/level_text combo. But for now, use the "special_text" field. Please also just format the text as you would any card (for tags, keywords & reminders etc.)
+
+Please note, that I don't want Planeswalker parsing to trigger reviews solely because the "stylesheet: m15-mainframe-planeswalker" is not supported by that list. I will say now, if the planeswalker doesn't have an alias or has an empty alias field, it should auto-parse with a "Normal" design type, otherwise if it has one it should trigger the modal as the alias may indicate a special version (also ignore this if it's an Evolution Planeswalker, as an Evolution Planeswalker will always have an Alias so it doesn't indicate anything).
+
+2. Emblem parsing
+
+An example:
+card:
+	stylesheet: m15-emblem-name-cut
+	stylesheet_version: 2024-06-06
+	has_styling: false
+	notes: 
+	time_created: 2024-04-02 20:57:47
+	time_modified: 2025-10-14 20:54:12
+	extra_data:
+		magic-counter-m15: counter_symbol: 
+	name: Scorched Earth Emblem
+	image: 
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Emblem</word-list-type-en>
+	super_type_2: <word-list-type-en></word-list-type-en>
+	super_type_3: <word-list-type-en></word-list-type-en>
+	super_type_4: <word-list-type-en></word-list-type-en>
+	sub_type: <word-list-planeswalker>Solar Flare</word-list-planeswalker>
+	sub_type_2: 
+	sub_type_3: 
+	sub_type_4: 
+	rarity: special
+	rule_text: Whenever a creature you don’t control attacks or blocks, put a -1/-1 counter on it.
+	flavor_text: <i-flavor></i-flavor>
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+
+Again, emblems have some particularities. They have the "super_type: <word-list-type-en>Emblem</word-list-type-en>" supertype.
+Emblems are actually similar to cards, it's jsut that the "subtype" like "sub_type: <word-list-planeswalker>Solar Flare</word-list-planeswalker>" usually refers to another card (a planeswalker), so that card should be in the Related cards without me needing to have a "Related Cards" list in the notes necessarily. Also, Emblem's rarity will probably always be special, so it shouldn't trigger the modal for special rarity detected. Emblems should also be auto-sent to the tokens DB (I'm not sure at this point if Token DB has a design type attribute, but if it has, Emblems are always "Normal" i guess). Emblems also don't have a cost, so cost shouldn't be a mandatory attribute if it is.
+
+Please note, that I don't want Emblem parsing to trigger reviews solely because the "stylesheet: m15-emblem-name-cut" is not supported by that list or that they detect rarity as special. I think it's safe to always assume anything with "stylesheet: m15-emblem-name-cut" should be handled as an Emblem, but double check the typing to be safe. If they don't coincide, then trigger a review.
+
+3. Leyline parsing
+
+card:
+	stylesheet: future-planeswalker-horizontal
+	stylesheet_version: 2024-05-29
+	has_styling: true
+	styling_data:
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		center_text: always
+		overlay: 
+	notes: 
+	time_created: 2025-01-08 03:22:48
+	time_modified: 2026-04-20 22:56:11
+	extra_data:
+		magic-m15-meld: meld_image: 
+		magic-m15-meld-3in1: meld_image: 
+		magic-new-planeswalker-pokemon: evocon: 
+	name: Leyline of Equilibrium
+	casting_cost: 3WW
+	image: 
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Enchantment</word-list-type-en>
+	sub_type: <word-list-enchantment>Leyline</word-list-enchantment><soft><atom-sep> </atom-sep></soft><word-list-enchantment></word-list-enchantment>
+	rarity: rare
+	rule_text:
+		If Leyline of Equilibrium is in your opening hand, you may begin the game with it on the battlefield.
+		<i>Years of power scaling have broken down the core concepts of this everchanging reality.</i>
+		When Leyline of Equilibrium enters, each player gains 10 life. Each player’s starting life total becomes 30.
+	flavor_text: <i-flavor></i-flavor>
+	loyalty: 
+	illustrator: 
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+
+Again, Leylines are detected specifically by the "Leyline" subtype "sub_type: <word-list-enchantment>Leyline</word-list-enchantment><soft><atom-sep> </atom-sep></soft><word-list-enchantment></word-list-enchantment>". Note that this is an enchantment subtype though, so be careful to make sure that the subtype is verified. The main chance is that it uses "stylesheet: future-planeswalker-horizontal" stylesheet, so that shouldn't trigger reviews solely if they find it anymore, and that the flavour text is interposed inbetween actual ability rules text:
+
+	rule_text:
+		If Leyline of Equilibrium is in your opening hand, you may begin the game with it on the battlefield.
+		<i>Years of power scaling have broken down the core concepts of this everchanging reality.</i>
+		When Leyline of Equilibrium enters, each player gains 10 life. Each player’s starting life total becomes 30.
+
+the text between the <i></i> tags (and no other tags aka isn't keyword or keyword reminder text) is flavor text, and should be stored with flavor text. 
+
+Please note, that I don't want Leyline parsing to trigger reviews solely because the "stylesheet: future-planeswalker-horizontal" is not supported by that list. I think it's safe to always assume anything with "stylesheet: future-planeswalker-horizontal" should be handled as an Emblem, but double check the typing to be safe. If they don't coincide, then trigger a review. Also, for the design type, "Normal" should be fine.
+
+4. Saga parsing
+
+card:
+	stylesheet: m15-saga
+	stylesheet_version: 2024-09-23
+	has_styling: true
+	styling_data:
+		chapter_textboxes: three
+		other_options: universes beyond
+		casting_cost_mana_symbols: magic-mana-large.mse-symbol-font
+		text_box_mana_symbols: magic-mana-small.mse-symbol-font
+		overlay: 
+	notes: 
+	time_created: 2024-06-04 11:02:05
+	time_modified: 2026-02-15 19:20:50
+	card_color: green
+	name: Three Visits
+	casting_cost: 2GG
+	image: 
+	image_2: 
+	mainframe_image: 
+	mainframe_image_2: 
+	super_type: <word-list-type-en>Enchantment</word-list-type-en>
+	super_type_2: <word-list-type-en></word-list-type-en>
+	super_type_3: <word-list-type-en></word-list-type-en>
+	super_type_4: <word-list-type-en></word-list-type-en>
+	sub_type: <word-list-enchantment>Saga</word-list-enchantment><soft><atom-sep> </atom-sep></soft><word-list-enchantment></word-list-enchantment>
+	sub_type_2: 
+	sub_type_3: 
+	sub_type_4: 
+	rarity: rare
+	chapter_text: <kw-A><nospellcheck><key>Read ahead</key></nospellcheck><atom-reminder-expert> <i-auto>(Choose a chapter and start with that many lore counters. Add one after your draw step. Skipped chapters don’t trigger. Sacrifice after III.)</i-auto></atom-reminder-expert></kw-A>
+	rule_text: 
+	flavor_text: <i-flavor></i-flavor>
+	level_1_text: Search your library for a Forest card, put it in your hand, then shuffle.
+	level_2_text: Search your library for a basic land card, put it in your hand, then shuffle.
+	level_3_text: Search your library for a basic land, put it on the battlefield tapped, then shuffle.
+	card_code_text: 
+	card_code_text_2: 
+	card_code_text_3: 
+	copyright: 
+	copyright_2: 
+	copyright_3: 
+	special_text:
+		<kw-A><nospellcheck><key>Read ahead</key></nospellcheck><atom-reminder-expert> <i-auto>(Choose a chapter and start with that many lore counters. Add one after your draw step. Skipped chapters don’t trigger. Sacrifice after III.)</i-auto></atom-reminder-expert></kw-A>
+		I — Search your library for a Forest card, put it in your hand, then shuffle.
+		II — Search your library for a basic land card, put it in your hand, then shuffle.
+		III — Search your library for a basic land, put it on the battlefield tapped, then shuffle.
+
+Similar to others, sagas use a stylesheet not handled until now "stylesheet: m15-saga" that trigger reviews.
+Like Leylines, a saga is determined by the enchantment's subtype of "sub_type: <word-list-enchantment>Saga</word-list-enchantment><soft><atom-sep> </atom-sep></soft><word-list-enchantment></word-list-enchantment>"
+
+Like Planeswalkers, sagas use separate "level_1_text" fields and a "chapter_text:" field, but the "special_text" field seems to encapsulate the entire format I want. So use that as the card's "Rule text", but note that, like Leylines, and <i>...</i> text without other tags is probably flavor text, and should be put in the flavor text, one entry under another if they are on different lines.
+e.g.: 
+I - You gain 4 life. <i>“Deep into the Arreat crater...”</i>
+II - Draw a card. <i> “...lies the smallest door...” </i>
+The flavor should be put one under another in the flavor field, with linebreaks:
+“Deep into the Arreat crater...”
+“...lies the smallest door...”
+Also, note that there is an exception. Apart from the Read Ahead reminder text (which has keyword tags anyway), text like this: "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after __X__.)" with __X__ being a variable word is never flavor text, and should be kept as ability text, despite being in italics with possibly no other tags. In fact, assume that the first line/section of each saga is never flavor text, and the flavor text only corresponds to the abilities (marked with I - , II - etc.)
+
+Please note, that I don't want Saga parsing to trigger reviews solely because the "stylesheet: m15-saga" is not supported by that list. I think it's safe to always assume anything with "stylesheet: m15-saga" should be handled as a Saga, but double check the typing to be safe. If they don't coincide, then trigger a review. Also, for the design type, "Normal" should be fine.
+
+Anyways, these are sensitive changes, so this is all for this wave

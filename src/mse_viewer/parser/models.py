@@ -39,6 +39,7 @@ class ParsedCardFace(BaseModel):
     styling_data: dict[str, str] = Field(default_factory=dict)
     power: str | None = None
     toughness: str | None = None
+    starting_loyalty: int | None = None  # planeswalker only
     flavor_text: str | None = None
     rule_text: str | None = None      # canonicalized text
     abilities: str | None = None      # canonicalized text including kw bodies

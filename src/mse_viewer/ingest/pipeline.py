@@ -209,6 +209,8 @@ def commit_face(
         printed=face.notes.status_printed,
         alias=face.alias,
     )
+    # Card-only column: starting_loyalty lives on Card, not Token, so we
+    # apply it in the route-specific branches further down.
 
     set_name_n = normalize_set_name(set_name)
     alt_art_label = preview.accept_as_alternate_label
@@ -220,12 +222,16 @@ def commit_face(
             # when the import provides something.
             if value not in (None, "", []):
                 setattr(existing, attr, value)
+        # Card-only: starting_loyalty. Same empty-import guard as above.
+        if effective_route == "card" and face.starting_loyalty is not None:
+            existing.starting_loyalty = face.starting_loyalty
         repo.append_set(existing, set_name_n)
         if alt_art_label or resolution == "alternate":
             label = alt_art_label or "alternate"
             repo.append_alt_art(existing, label)
         repo.append_related(existing, list(face.related_from_notes))
         _apply_evo_t_cross_link(face, route=effective_route, row=existing, repos=repos)
+        _apply_emblem_cross_link(face, route=effective_route, row=existing, repos=repos)
         repos.db.flush()
         return CommitResult(route=effective_route, record_id=existing.id)
 
@@ -236,6 +242,7 @@ def commit_face(
     if effective_route == "card":
         new_kwargs["rarity"] = rarity
         new_kwargs["power_level"] = pwl
+        new_kwargs["starting_loyalty"] = face.starting_loyalty
         row = repos.cards.create(**new_kwargs)
     else:
         row = repos.tokens.create(**new_kwargs)
@@ -245,6 +252,7 @@ def commit_face(
         repo.append_alt_art(row, alt_art_label)
 
     _apply_evo_t_cross_link(face, route=effective_route, row=row, repos=repos)
+    _apply_emblem_cross_link(face, route=effective_route, row=row, repos=repos)
     return CommitResult(route=effective_route, record_id=row.id)
 
 
@@ -279,3 +287,34 @@ def _apply_evo_t_cross_link(
             if "evo-t" in (tok.card_type or "").lower():
                 repos.tokens.append_related(tok, [row.name])
                 repos.cards.append_related(row, [tok.name])
+
+
+def _apply_emblem_cross_link(
+    face: ParsedCardFace,
+    *,
+    route: Route,
+    row,
+    repos: IngestRepos,
+) -> None:
+    """Cross-link an Emblem with the planeswalker named in its subtype.
+
+    The face-level parser already wrote the subtype into ``related_from_notes``
+    so the emblem's row carries the link forward. This helper writes the
+    reverse direction onto the Card row when it exists, so the planeswalker
+    detail page surfaces the emblem under Related cards. Re-runnable
+    (``append_related`` de-dupes).
+
+    No-op when the face isn't an Emblem; no-op when the named planeswalker
+    isn't in the Cards DB yet (the emblem-side ``(missing)`` annotation will
+    surface until the planeswalker is imported).
+    """
+    if route != "token":
+        return
+    if "emblem" not in (face.super_type or "").lower():
+        return
+    sub = (face.sub_type or "").strip()
+    if not sub:
+        return
+    for namesake in repos.cards.find_by_name_ci(sub):
+        repos.cards.append_related(namesake, [row.name])
+        repos.tokens.append_related(row, [namesake.name])

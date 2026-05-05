@@ -12,6 +12,8 @@ class Card(Base, CardCoreMixin):
 
     rarity: Mapped[str] = mapped_column(String(32), nullable=False, default="common")
     power_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Planeswalkers only — null on every other card type.
+    starting_loyalty: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     def __repr__(self) -> str:  # pragma: no cover -- debug only
         return f"<Card id={self.id} name={self.name!r}>"

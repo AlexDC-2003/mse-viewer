@@ -22,7 +22,22 @@ router = APIRouter()
 _RE_KW_ATOM_PARAM = re.compile(r"<atom-param>([^<]*)</atom-param>", re.IGNORECASE)
 
 
-def _build_keyword_reminder_resolver(keyword_rows) -> Callable[[str], str | None]:
+def _card_facts(row) -> dict[str, object]:
+    """Snapshot the row fields that reminder-template predicates may consult.
+
+    Currently used for ``has_pt()`` (true when the row has both power and
+    toughness). Extend with more fields as new predicates land.
+    """
+    return {
+        "power": getattr(row, "power", None),
+        "toughness": getattr(row, "toughness", None),
+    }
+
+
+def _build_keyword_reminder_resolver(
+    keyword_rows,
+    card_facts: dict[str, object] | None = None,
+) -> Callable[[str], str | None]:
     """Build an in-memory resolver: given a card-side ref string (e.g.
     ``Trample`` / ``Splash 2`` / ``Evolve: Foo``), return the matching
     keyword's reminder body, evaluated against any captured invocation
@@ -38,6 +53,9 @@ def _build_keyword_reminder_resolver(keyword_rows) -> Callable[[str], str | None
          :func:`evaluate_reminder_template` so a card that reads
          ``Toxic 2`` gets ``2 poison counters.`` instead of leaking the
          raw ``{ if n.value=="1" then "counter." else "counters." }``.
+
+    ``card_facts`` is forwarded to the template evaluator so function-call
+    predicates like ``has_pt()`` resolve against the invoking card's row.
 
     A tolerance retry strips a single ``:`` from the candidate before
     rematching — handles cases where MSE renders ``Evolve: <name>`` but the
@@ -70,7 +88,7 @@ def _build_keyword_reminder_resolver(keyword_rows) -> Callable[[str], str | None
             return None
         hit = exact.get(ref.lower())
         if hit is not None:
-            return evaluate_reminder_template(hit)
+            return evaluate_reminder_template(hit, card_facts=card_facts)
         for pat, rem, names in patterns:
             m = pat.match(ref)
             if m:
@@ -81,7 +99,7 @@ def _build_keyword_reminder_resolver(keyword_rows) -> Callable[[str], str | None
                 params = {nm: val for nm, val in zip(names, groups)}
                 for i, val in enumerate(groups, start=1):
                     params.setdefault(f"param{i}", val)
-                return evaluate_reminder_template(rem, params)
+                return evaluate_reminder_template(rem, params, card_facts=card_facts)
         return None
 
     def resolve(ref: str) -> str | None:
@@ -171,7 +189,9 @@ def cards_detail(request: Request, card_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404)
     keyword_repo = KeywordRepository(db)
     keyword_rows = [k for k in (keyword_repo.get(i) for i in (card.keyword_ids or [])) if k]
-    keyword_reminders = _build_keyword_reminder_resolver(keyword_rows)
+    keyword_reminders = _build_keyword_reminder_resolver(
+        keyword_rows, card_facts=_card_facts(card)
+    )
     related = _linkify_related(
         card.related_cards,
         current_kind="card",
@@ -215,7 +235,9 @@ def tokens_detail(request: Request, token_id: int, db: Session = Depends(get_db)
         raise HTTPException(404)
     keyword_repo = KeywordRepository(db)
     keyword_rows = [k for k in (keyword_repo.get(i) for i in (row.keyword_ids or [])) if k]
-    keyword_reminders = _build_keyword_reminder_resolver(keyword_rows)
+    keyword_reminders = _build_keyword_reminder_resolver(
+        keyword_rows, card_facts=_card_facts(row)
+    )
     related = _linkify_related(
         row.related_cards,
         current_kind="token",

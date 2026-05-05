@@ -29,7 +29,23 @@ def derive_design_type(
         styling_data = dict(header.styling_defaults.get(stylesheet, {}))
 
     super_type = (face.super_type or "").lower()
+    sub_type = (face.sub_type or "").lower()
     frames = _frames_without_snow(styling_data.get("frames"))
+
+    # Frame-family short-circuits (Phase 1.6). These run before stylesheet
+    # rules because users reuse stylesheets across frames — the type line is
+    # the authoritative signal.
+    #
+    #   * Emblem → Normal (always).
+    #   * Planeswalker → Normal (alias-driven review is handled in preview.py;
+    #     this only suppresses the "stylesheet not in rule table" punt).
+    #   * Saga / Leyline → Normal.
+    if "emblem" in super_type:
+        return DesignTypeResult("Normal", False)
+    if "planeswalker" in super_type:
+        return DesignTypeResult("Normal", False)
+    if "enchantment" in super_type and ("saga" in sub_type or "leyline" in sub_type):
+        return DesignTypeResult("Normal", False)
 
     # ---- m15-altered ----
     if stylesheet == "m15-altered":
@@ -40,6 +56,17 @@ def derive_design_type(
         return _ask(face, stylesheet, styling_data, playbook_lookup, "altered styling combination not in rule table")
 
     if stylesheet in ("m15-mainframe-planeswalker", "m15-mainframe-tokens"):
+        return DesignTypeResult("Normal", False)
+
+    # Phase 1.6 frame stylesheets — the user confirmed these always map to
+    # Normal regardless of supertype, but the supertype branches above will
+    # already have handled the typed cases. This catches bare-stylesheet
+    # imports and prevents the "stylesheet not in rule table" punt.
+    if stylesheet in (
+        "m15-emblem-name-cut",
+        "future-planeswalker-horizontal",
+        "m15-saga",
+    ):
         return DesignTypeResult("Normal", False)
 
     if stylesheet == "m15-altered-beyond":

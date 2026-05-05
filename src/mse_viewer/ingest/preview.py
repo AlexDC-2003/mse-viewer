@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from mse_viewer.parser.card_parser import detect_frame, is_evolution_planeswalker
 from mse_viewer.parser.models import ParsedCardFace, ParsedSetHeader
 
 from .derivations import (
@@ -47,6 +48,10 @@ def build_preview(
 ) -> FacePreview:
     warnings = WarningCollector()
 
+    # Frame detection — drives several Phase 1.6 short-circuits (silenced
+    # rarity_special on Emblems, alias-driven review on Planeswalkers, etc.).
+    frame = detect_frame(face.super_type or "", face.sub_type)
+
     # Routing first — token namespace is independent of cards. Token routing is
     # automatic (super_type contains Token) and does NOT require user
     # confirmation, so it doesn't generate a warning by itself.
@@ -62,6 +67,12 @@ def build_preview(
             WarningKind.rarity_special,
             "Rarity is 'special' — choose Cards or Tokens DB.",
         )
+
+    # Frame / stylesheet typing check. We trust the type line over the
+    # stylesheet, but mismatched pairs are worth a heads-up — they usually
+    # mean the supertype line is wrong, the stylesheet is wrong, or the user
+    # is doing something the parser hasn't seen before.
+    _check_frame_type_mismatch(face, frame, warnings)
 
     proposed_identity = compute_identity(
         display_name=face.name,
@@ -90,6 +101,21 @@ def build_preview(
             styling_data=dict(face.styling_data),
         )
 
+    # Planeswalker alias rule: a non-Evolution Planeswalker with a non-empty
+    # alias may want a non-Normal design type — surface a modal so the user
+    # can pick. Evolution Planeswalkers always have an alias, so the alias
+    # signal carries no meaning there.
+    if (
+        frame == "planeswalker"
+        and (face.alias or "").strip()
+        and not is_evolution_planeswalker(face.super_type or "")
+    ):
+        warnings.add(
+            WarningKind.planeswalker_alias,
+            "Planeswalker has an alias — confirm design type.",
+            alias=face.alias or "",
+        )
+
     return FacePreview(
         face=face,
         proposed_identity=proposed_identity,
@@ -98,3 +124,33 @@ def build_preview(
         design_type=dt,
         warnings=warnings,
     )
+
+
+def _check_frame_type_mismatch(
+    face: ParsedCardFace, frame: str, warnings: WarningCollector
+) -> None:
+    """Raise the ``frame_type_mismatch`` warning when the stylesheet implies
+    one frame and the type line implies another. Per Phase 1.6 user direction:
+
+    * ``m15-emblem-name-cut`` should always be an Emblem.
+    * ``m15-saga`` should always be a Saga (Enchantment subtype).
+    * ``future-planeswalker-horizontal`` should always be a Leyline (per the
+      user's prompt — that stylesheet's typical use is Leyline framing).
+    """
+    stylesheet = (face.stylesheet or "").strip().lower()
+    if not stylesheet:
+        return
+    expected: dict[str, str] = {
+        "m15-emblem-name-cut": "emblem",
+        "m15-saga": "saga",
+        "future-planeswalker-horizontal": "leyline",
+    }
+    want = expected.get(stylesheet)
+    if want and frame != want:
+        warnings.add(
+            WarningKind.frame_type_mismatch,
+            f"Stylesheet {stylesheet!r} expects a {want} but type line is {frame!r}.",
+            stylesheet=stylesheet,
+            expected_frame=want,
+            actual_frame=frame,
+        )
