@@ -38,7 +38,6 @@
     <fieldset>
         <legend>Text</legend>
         <label>Rule text <textarea name="rule_text" rows="6">{{ card.rule_text or '' if card else '' }}</textarea></label>
-        <label>Abilities <textarea name="abilities" rows="4">{{ card.abilities or '' if card else '' }}</textarea></label>
         <label>Flavor text <textarea name="flavor_text" rows="3">{{ card.flavor_text or '' if card else '' }}</textarea></label>
         <label>Notes <textarea name="notes" rows="3">{{ card.notes or '' if card else '' }}</textarea></label>
     </fieldset>
@@ -47,7 +46,9 @@
         <label>Sets <input name="sets" value="{{ card.sets|join(', ') if card else '' }}"></label>
         <label>Alt arts <input name="alt_arts" value="{{ card.alt_arts|join(', ') if card else '' }}"></label>
         <label>Related cards <input name="related_cards" value="{{ card.related_cards|join(', ') if card else '' }}"></label>
-        <label>Keyword IDs <input name="keyword_ids" value="{{ card.keyword_ids|join(', ') if card else '' }}"></label>
+        <label>Keywords (names; e.g. <code>Haste, Ammo 2</code> — resolved to IDs server-side)
+            <input name="keyword_names" value="{{ keyword_names_value or '' }}">
+        </label>
     </fieldset>
     <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
     {% if not is_new %}

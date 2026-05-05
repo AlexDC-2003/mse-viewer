@@ -119,9 +119,17 @@ _RE_INLINE_ITALIC = re.compile(r"</?i>", re.IGNORECASE)
 
 
 def _split_keyword_comma_lines(text: str, resolver) -> str:
-    """For each line: if every top-level comma-segment resolves to a known
-    keyword (allowing a trailing parenthesised reminder body on at most one
-    of them), split into one segment per line.  Otherwise leave the line.
+    """For each line: if every top-level comma-segment looks like a keyword
+    invocation, split into one segment per line. Otherwise leave the line.
+
+    A segment "looks like a keyword" when, after stripping a trailing
+    ``(reminder)`` body, either:
+
+      * the head resolves against the keyword DB, OR
+      * the segment carries its own trailing ``(reminder)`` body and the head
+        is at most four words long — the parenthesised body is a strong
+        signal that this is a self-defining keyword the user added inline
+        before any catalog row exists (Phase 1.6 prompt 3 bug 11).
     """
     out: list[str] = []
     for line in text.split("\n"):
@@ -134,10 +142,17 @@ def _split_keyword_comma_lines(text: str, resolver) -> str:
             continue
         all_keywords = True
         for seg in segments:
-            head = _strip_trailing_parens(seg).strip()
-            if not head or resolver(head) is None:
+            stripped = seg.strip()
+            head = _strip_trailing_parens(stripped).strip()
+            if not head:
                 all_keywords = False
                 break
+            if resolver(head) is not None:
+                continue
+            if stripped.endswith(")") and len(head.split()) <= 4:
+                continue
+            all_keywords = False
+            break
         if all_keywords:
             out.extend(s.strip() for s in segments if s.strip())
         else:

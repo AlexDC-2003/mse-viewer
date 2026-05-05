@@ -25,7 +25,8 @@ class CardCoreMixin:
     toughness: Mapped[str | None] = mapped_column(String(32), nullable=True)
     flavor_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     rule_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    abilities: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Phase 1.6 prompt 3 bug 3: ``abilities`` was always identical to
+    # ``rule_text`` after canonicalization — dropped.
 
     @declared_attr
     def keyword_ids(cls) -> Mapped[list[int]]:
@@ -35,9 +36,8 @@ class CardCoreMixin:
     def related_cards(cls) -> Mapped[list[str]]:
         return mapped_column(JSONB, nullable=False, default=list)
 
-    @declared_attr
-    def sets(cls) -> Mapped[list[str]]:
-        return mapped_column(JSONB, nullable=False, default=list)
+    # ``sets`` lives on Card only (Phase 1.6 prompt 3 bug 6) — Tokens don't
+    # need a per-set provenance list.
 
     @declared_attr
     def alt_arts(cls) -> Mapped[list[str]]:

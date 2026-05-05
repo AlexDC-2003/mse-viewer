@@ -69,7 +69,8 @@ def evaluate_reminder_template(
     # so a malformed template cannot run away.
     for _ in range(8):
         new = _RE_IF_THEN_ELSE.sub(
-            lambda m: _eval_if(
+            lambda m: _maybe_replace_if(
+                m.group(0),
                 m.group("predicate"),
                 m.group("then"),
                 m.group("else_branch"),
@@ -86,16 +87,23 @@ def evaluate_reminder_template(
     return text
 
 
-def _eval_if(
+def _maybe_replace_if(
+    original: str,
     predicate: str,
     then_branch: str,
     else_branch: str | None,
     params: Mapping[str, str] | None,
     card_facts: Mapping[str, object] | None,
 ) -> str:
-    """Evaluate a single ``if/then[/else]``. Default to ``else`` (or empty
-    string when no ``else`` was supplied) when the predicate cannot be decided.
+    """Decide whether a captured ``{ if … then … }`` template should be
+    replaced. The regex is intentionally loose to handle nested forms like
+    ``else if X then "Y" else "Z"``; it can over-match on those — when it
+    does, the predicate group ends up containing a stray ``then`` / ``else``
+    fragment from the inner expression. We detect that and bail out instead
+    of producing nonsense replacements (Phase 1.6 prompt 3 bug 12).
     """
+    if any(token in predicate for token in (" then ", " else ", "{", "}")):
+        return original
     decided = _eval_predicate(predicate, params, card_facts)
     fallback = else_branch if else_branch is not None else ""
     if decided is None:

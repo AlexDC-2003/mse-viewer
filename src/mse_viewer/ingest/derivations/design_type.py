@@ -55,7 +55,12 @@ def derive_design_type(
             return DesignTypeResult("Normal", False)
         return _ask(face, stylesheet, styling_data, playbook_lookup, "altered styling combination not in rule table")
 
-    if stylesheet in ("m15-mainframe-planeswalker", "m15-mainframe-tokens"):
+    if stylesheet in (
+        "m15-mainframe-planeswalker",
+        "m15-mainframe-tokens",
+        # Phase 1.6 prompt 3 bug 9: DFC frame.
+        "m15-mainframe-dfc",
+    ):
         return DesignTypeResult("Normal", False)
 
     # Phase 1.6 frame stylesheets — the user confirmed these always map to

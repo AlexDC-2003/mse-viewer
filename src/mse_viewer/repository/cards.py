@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -37,6 +38,10 @@ class _BaseCardRepo:
         return set(self.db.execute(select(self.model.name)).scalars())
 
     def append_set(self, row, set_name: str) -> None:
+        # ``sets`` only lives on Card (Phase 1.6 prompt 3 bug 6); silently
+        # no-op for any model without the column so legacy callers don't fail.
+        if not hasattr(row, "sets"):
+            return
         row.sets = append_unique(row.sets, set_name)
 
     def append_alt_art(self, row, label: str) -> None:
@@ -48,18 +53,26 @@ class _BaseCardRepo:
         row.related_cards = merge_unique(row.related_cards, [n for n in names if n])
 
     def search(self, query: str, *, limit: int = 200) -> list:
-        """Match ``query`` (case-insensitive substring) against name, rule_text
-        and flavor_text. Whitelist tags (``<i>``, ``</i>``, ``<b>``, ``</b>``,
-        ``<em>``, ``</em>``) are stripped from the text columns before
-        matching so a query for ``first-strike`` matches text stored as
-        ``<i>first-strike</i>``."""
+        """Match ``query`` (case-insensitive substring) across the
+        Phase-1.6 search field set: name, rule_text, flavor_text, alias,
+        card_type, card_subtype, and related_cards (JSONB list cast to text).
+
+        Whitelist tags (``<i>``, ``</i>``, ``<b>``, ``</b>``, ``<em>``,
+        ``</em>``) are stripped from the prose columns before matching so
+        a query for ``first-strike`` matches text stored as ``<i>first-strike</i>``.
+        """
         q = f"%{query.strip().lower()}%"
         tag_re = r"</?(i|b|em)>"
-        rule_clean = func.regexp_replace(
-            func.coalesce(func.lower(self.model.rule_text), ""), tag_re, "", "gi"
-        )
-        flavor_clean = func.regexp_replace(
-            func.coalesce(func.lower(self.model.flavor_text), ""), tag_re, "", "gi"
+
+        def _stripped(col):
+            return func.regexp_replace(
+                func.coalesce(func.lower(col), ""), tag_re, "", "gi"
+            )
+
+        rule_clean = _stripped(self.model.rule_text)
+        flavor_clean = _stripped(self.model.flavor_text)
+        related_clean = func.lower(
+            func.coalesce(func.cast(self.model.related_cards, sa.Text), "")
         )
         stmt = (
             select(self.model)
@@ -67,6 +80,10 @@ class _BaseCardRepo:
                 func.lower(self.model.name).like(q)
                 | rule_clean.like(q)
                 | flavor_clean.like(q)
+                | func.coalesce(func.lower(self.model.alias), "").like(q)
+                | func.coalesce(func.lower(self.model.card_type), "").like(q)
+                | func.coalesce(func.lower(self.model.card_subtype), "").like(q)
+                | related_clean.like(q)
             )
             .order_by(self.model.name)
             .limit(limit)

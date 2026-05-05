@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from mse_viewer.parser.models import ParsedCardFace, ParsedKeyword
 from mse_viewer.repository import (
     CardRepository,
+    DeckRepository,
     KeywordRepository,
     LogRepository,
     TokenRepository,
@@ -42,6 +43,7 @@ class IngestRepos:
         self.cards = CardRepository(db)
         self.tokens = TokenRepository(db)
         self.keywords = KeywordRepository(db)
+        self.decks = DeckRepository(db)
         self.log = LogRepository(db)
         self.playbook = PlaybookStore(db)
 
@@ -60,22 +62,45 @@ def commit_keywords(parsed: list[ParsedKeyword], repos: IngestRepos) -> dict[str
     return out
 
 
+def log_rejected_keywords(rejected: list[str], repos: IngestRepos) -> None:
+    """Phase 1.6 prompt 3 change 13: log the keyword definitions we deleted
+    at parse time so the user can audit. One log entry per rejected match
+    string."""
+    for name in rejected:
+        repos.log.create_action(
+            title=f"Rejected keyword definition: {name!r}",
+            body="This keyword:match identity is on the explicit reject list "
+            "and was dropped from the file before ingest.",
+            payload={"match": name, "reason": "keyword_reject_list"},
+        )
+
+
 def resolve_keyword_refs_for_face(
     face: ParsedCardFace,
     repos: IngestRepos,
-) -> tuple[list[int], list[str]]:
+) -> tuple[list[int], list[str], list[str]]:
     """For every ``<key>`` reference on the face, return ``(keyword_ids,
-    stub_names_created)``.
+    stub_names_created, rejected_refs)``.
 
     Resolution uses :meth:`KeywordRepository.find_for_card_ref` so that
     parameterized references like ``Cleave 1RR`` link to a single
     ``Cleave <atom-param>cost</atom-param>`` definition rather than
     creating one stub per concrete value (init_prompt_4 #9/#10).
+
+    Phase 1.6 prompt 3 change 13: refs matching the explicit reject-list
+    are dropped here and returned in ``rejected_refs`` so the caller can
+    log them — they are NOT linked into ``keyword_ids``.
     """
+    from mse_viewer.parser.keyword_rejects import is_rejected_ref
+
     ids: list[int] = []
     stubs_created: list[str] = []
+    rejected_refs: list[str] = []
     reminders = face.keyword_reminders or {}
     for ref in face.keyword_refs:
+        if is_rejected_ref(ref):
+            rejected_refs.append(ref)
+            continue
         reminder = reminders.get(ref.lower())
         existing = repos.keywords.find_for_card_ref(ref)
         if existing is None:
@@ -96,7 +121,7 @@ def resolve_keyword_refs_for_face(
             )
         if kid not in ids:
             ids.append(kid)
-    return ids, stubs_created
+    return ids, stubs_created, rejected_refs
 
 
 # ---------------------------------------------------------------------------
@@ -162,12 +187,19 @@ def commit_face(
         existing = None
 
     # 4) Resolve keyword references → ids + stub log entries.
-    keyword_ids, stub_names = resolve_keyword_refs_for_face(face, repos)
+    keyword_ids, stub_names, rejected_refs = resolve_keyword_refs_for_face(face, repos)
     for stub in stub_names:
         repos.log.create_action(
             title=f"Define keyword: {stub}",
             body=f"Auto-created stub keyword from card {face.name!r}.",
             payload={"keyword_ref": stub, "card_name": face.name},
+        )
+    for ref in rejected_refs:
+        repos.log.create_action(
+            title=f"Rejected keyword on {face.name!r}: {ref!r}",
+            body="The reference matches the explicit keyword reject-list and "
+            "was not linked. Edit the source card if this was intentional.",
+            payload={"keyword_ref": ref, "card_name": face.name, "reason": "keyword_reject_list"},
         )
 
     # 5) Compute concrete fields, applying any overrides from the modal.
@@ -201,16 +233,15 @@ def commit_face(
         toughness=face.toughness,
         flavor_text=face.flavor_text,
         rule_text=face.rule_text,
-        abilities=face.abilities,
         keyword_ids=keyword_ids,
-        related_cards=list(face.related_from_notes),
+        related_cards=_canonicalize_related(list(face.related_from_notes), repos),
         design_type=design_type_value,
         notes=notes_body,
         printed=face.notes.status_printed,
         alias=face.alias,
     )
-    # Card-only column: starting_loyalty lives on Card, not Token, so we
-    # apply it in the route-specific branches further down.
+    # Card-only columns: ``starting_loyalty`` and ``sets`` apply to Card only.
+    # ``sets`` was removed from Token in 0004 (Phase 1.6 prompt 3 bug 6).
 
     set_name_n = normalize_set_name(set_name)
     alt_art_label = preview.accept_as_alternate_label
@@ -225,11 +256,16 @@ def commit_face(
         # Card-only: starting_loyalty. Same empty-import guard as above.
         if effective_route == "card" and face.starting_loyalty is not None:
             existing.starting_loyalty = face.starting_loyalty
-        repo.append_set(existing, set_name_n)
+        # Tokens no longer carry a ``sets`` column — only Cards do.
+        if effective_route == "card":
+            repo.append_set(existing, set_name_n)
         if alt_art_label or resolution == "alternate":
             label = alt_art_label or "alternate"
             repo.append_alt_art(existing, label)
-        repo.append_related(existing, list(face.related_from_notes))
+        repo.append_related(
+            existing,
+            _canonicalize_related(list(face.related_from_notes), repos),
+        )
         _apply_evo_t_cross_link(face, route=effective_route, row=existing, repos=repos)
         _apply_emblem_cross_link(face, route=effective_route, row=existing, repos=repos)
         repos.db.flush()
@@ -247,7 +283,8 @@ def commit_face(
     else:
         row = repos.tokens.create(**new_kwargs)
 
-    repo.append_set(row, set_name_n)
+    if effective_route == "card":
+        repo.append_set(row, set_name_n)
     if alt_art_label:
         repo.append_alt_art(row, alt_art_label)
 
@@ -287,6 +324,41 @@ def _apply_evo_t_cross_link(
             if "evo-t" in (tok.card_type or "").lower():
                 repos.tokens.append_related(tok, [row.name])
                 repos.cards.append_related(row, [tok.name])
+
+
+def _canonicalize_related(names: list[str], repos: IngestRepos) -> list[str]:
+    """Auto-correct casing on related-card names against the existing rows.
+
+    Phase 1.6 prompt 3 bug 5: a related entry written as ``"Ackey The Archer"``
+    that resolves (CI) to a Card stored as ``"Ackey the Archer"`` should be
+    rewritten to the stored capitalization. Misspells are NOT corrected — only
+    casing. We try Cards first, fall back to Tokens. Names that don't resolve
+    are left alone so the missing-related view can still flag them.
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in names:
+        if not raw:
+            continue
+        candidate = raw.strip()
+        if not candidate:
+            continue
+        canonical = candidate
+        for repo in (repos.cards, repos.tokens):
+            hit = repo.find_by_identity(candidate)
+            if hit is not None:
+                canonical = hit.name
+                break
+            ci = repo.find_by_name_ci(candidate)
+            if ci:
+                canonical = ci[0].name
+                break
+        key = canonical.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(canonical)
+    return out
 
 
 def _apply_emblem_cross_link(

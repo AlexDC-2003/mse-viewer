@@ -83,3 +83,81 @@ Change 14: Mark the following as todolater for the full UI change.
 The "Sets" and "UI" column should be the last columns/rows printed on the UI in both table and detail view, and should only be visible if you tick a global "Additional Information" option in the UI (the option should persist when you change through the webpages of the app). "Design Type" & "Alt arts" should also be in that set, but it should only appear in the detail view when that global option is ticked.
 Also, hide the P/T & Alias fields in the detail view UI for cards that don't have it (aka the fields are empty), like you hide Starting Loyalty for cards that don't have it.
 
+Change 15: mark todos later
+- diff view doesn't specify incoming changes, the incoming data may not be parsed yet
+Changes vs existing record
+Field	Existing	Incoming
+colors	['red', 'white']	[]
+design_type	Normal	(pending)
+- deck ingest full of internal server errors, can't seem to either insert or reject:
+mse_viewer_app  | INFO:     172.18.0.1:42382 - "POST /review/b824174efbb246afa5cb081b029b6ff3/commit HTTP/1.1" 500 Internal Server Error
+mse_viewer_app  | ERROR:    Exception in ASGI application
+mse_viewer_app  | Traceback (most recent call last):
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 401, in run_asgi
+mse_viewer_app  |     result = await app(  # type: ignore[func-returns-value]
+mse_viewer_app  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+mse_viewer_app  |     return await self.app(scope, receive, send)
+mse_viewer_app  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+mse_viewer_app  |     await super().__call__(scope, receive, send)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+mse_viewer_app  |     await self.middleware_stack(scope, receive, send)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+mse_viewer_app  |     raise exc
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+mse_viewer_app  |     await self.app(scope, receive, _send)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+mse_viewer_app  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+mse_viewer_app  |     raise exc
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+mse_viewer_app  |     await app(scope, receive, sender)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+mse_viewer_app  |     await self.middleware_stack(scope, receive, send)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+mse_viewer_app  |     await route.handle(scope, receive, send)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+mse_viewer_app  |     await self.app(scope, receive, send)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+mse_viewer_app  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+mse_viewer_app  |     raise exc
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+mse_viewer_app  |     await app(scope, receive, sender)
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+mse_viewer_app  |     response = await f(request)
+mse_viewer_app  |                ^^^^^^^^^^^^^^^^
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
+mse_viewer_app  |     raw_response = await run_endpoint_function(
+mse_viewer_app  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 214, in run_endpoint_function
+mse_viewer_app  |     return await run_in_threadpool(dependant.call, **values)
+mse_viewer_app  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/starlette/concurrency.py", line 39, in run_in_threadpool
+mse_viewer_app  |     return await anyio.to_thread.run_sync(func, *args)
+mse_viewer_app  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/anyio/to_thread.py", line 63, in run_sync
+mse_viewer_app  |     return await get_async_backend().run_sync_in_worker_thread(
+mse_viewer_app  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+mse_viewer_app  |     return await future
+mse_viewer_app  |            ^^^^^^^^^^^^
+mse_viewer_app  |   File "/usr/local/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+mse_viewer_app  |     result = context.run(func, *args)
+mse_viewer_app  |              ^^^^^^^^^^^^^^^^^^^^^^^^
+mse_viewer_app  |   File "/app/src/mse_viewer/web/routes/review.py", line 78, in review_commit
+mse_viewer_app  |     store.commit_current(
+mse_viewer_app  |   File "/app/src/mse_viewer/services/ingest_session.py", line 213, in commit_current
+mse_viewer_app  |     _finalize_deck(session, repos)
+mse_viewer_app  |   File "/app/src/mse_viewer/services/ingest_session.py", line 233, in _finalize_deck
+mse_viewer_app  |     if repos.decks.find_by_name(plan.meta["name"]):
+mse_viewer_app  |        ^^^^^^^^^^^
+mse_viewer_app  | AttributeError: 'IngestRepos' object has no attribute 'decks'
+- rejecting everything throws an internal server error
+- deck ingest may not work properly as it treats input as adding a card, not linking to a card
+    > triggering duplication modals
+    > now the dupped modals will have the "sets" of the card include the deck name as a set, when it should be
+    that a deck is a list of card refs, so the card's data is "independent" of the decks that use it.
+    > actually, this may be only regarding tokens. The db doesn't also search the tokens db for the cards it tries to ref.
+    I can't actually tell, the deck ingest seems to be completely broken

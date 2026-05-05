@@ -13,7 +13,12 @@ from typing import Iterable
 from uuid import uuid4
 
 from mse_viewer.ingest.deck import DeckIngestPlan
-from mse_viewer.ingest.pipeline import IngestRepos, commit_face, commit_keywords
+from mse_viewer.ingest.pipeline import (
+    IngestRepos,
+    commit_face,
+    commit_keywords,
+    log_rejected_keywords,
+)
 from mse_viewer.ingest.preview import FacePreview, build_preview
 from mse_viewer.parser.models import ParsedSet
 
@@ -71,7 +76,6 @@ def _row_snapshot(row) -> dict:
         "toughness": row.toughness,
         "flavor_text": row.flavor_text,
         "rule_text": row.rule_text,
-        "abilities": row.abilities,
         "design_type": row.design_type,
         "rarity": getattr(row, "rarity", None),
         "alias": row.alias,
@@ -107,6 +111,8 @@ class IngestSessionStore:
     ) -> IngestSession:
         # Pre-pass: write all keyword definitions so cards can FK them.
         keyword_ids = commit_keywords(parsed.keywords, repos)
+        if parsed.rejected_keywords:
+            log_rejected_keywords(parsed.rejected_keywords, repos)
         repos.db.commit()
 
         # Build per-face previews up-front.

@@ -89,7 +89,6 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
         )
 
     rule_text_canon = canonicalize_text(rule_text_raw) or None
-    abilities = rule_text_canon  # Phase 1: same content
     # Case-insensitive dedup of keyword refs: lower-case as the dedup key,
     # preserve the first-seen casing for display / lookup.  Reminder text from
     # the trailing ``<atom-reminder>`` block (if any) is kept alongside so the
@@ -174,7 +173,6 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
         starting_loyalty=starting_loyalty,
         flavor_text=flavor,
         rule_text=rule_text_canon,
-        abilities=abilities,
         keyword_refs=keyword_refs,
         keyword_reminders=keyword_reminders,
         notes=notes,

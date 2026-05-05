@@ -16,7 +16,6 @@
             <th>Cost</th>
             <th>Colors</th>
             <th>P/T</th>
-            <th>Sets</th>
             <th>Rule text</th>
         </tr>
     </thead>
@@ -30,7 +29,6 @@
             <td>
                 {% if t.power or t.toughness %}{{ t.power or "" }}/{{ t.toughness or "" }}{% endif %}
             </td>
-            <td>{{ t.sets|join(", ") }}</td>
             <td><small>{{ t.rule_text | render_rule_text_snippet }}</small></td>
         </tr>
     {% endfor %}

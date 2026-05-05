@@ -35,16 +35,16 @@
     <fieldset>
         <legend>Text</legend>
         <label>Rule text <textarea name="rule_text" rows="6">{{ token.rule_text or '' if token else '' }}</textarea></label>
-        <label>Abilities <textarea name="abilities" rows="4">{{ token.abilities or '' if token else '' }}</textarea></label>
         <label>Flavor text <textarea name="flavor_text" rows="3">{{ token.flavor_text or '' if token else '' }}</textarea></label>
         <label>Notes <textarea name="notes" rows="3">{{ token.notes or '' if token else '' }}</textarea></label>
     </fieldset>
     <fieldset>
         <legend>Lists (comma-separated)</legend>
-        <label>Sets <input name="sets" value="{{ token.sets|join(', ') if token else '' }}"></label>
         <label>Alt arts <input name="alt_arts" value="{{ token.alt_arts|join(', ') if token else '' }}"></label>
         <label>Related cards <input name="related_cards" value="{{ token.related_cards|join(', ') if token else '' }}"></label>
-        <label>Keyword IDs <input name="keyword_ids" value="{{ token.keyword_ids|join(', ') if token else '' }}"></label>
+        <label>Keywords (names; e.g. <code>Haste, Ammo 2</code> — resolved to IDs server-side)
+            <input name="keyword_names" value="{{ keyword_names_value or '' }}">
+        </label>
     </fieldset>
     <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
     {% if not is_new %}

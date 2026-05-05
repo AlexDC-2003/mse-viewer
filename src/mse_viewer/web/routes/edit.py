@@ -52,6 +52,70 @@ def _split_csv_int(raw: str | None) -> list[int]:
     return out
 
 
+def _resolve_keyword_names_to_ids(
+    raw: str | None, repo: KeywordRepository
+) -> tuple[list[int], list[str]]:
+    """Take a free-text keyword field and return (ids, unresolved_names).
+
+    Names go through :meth:`KeywordRepository.find_for_card_ref` which already
+    handles parameterised matches (``Ammo 2`` → ``Ammo <atom-param>n</atom-param>``).
+    Unresolved names are returned so the route can surface them to the user;
+    we deliberately do NOT auto-create stubs here — manual edits are
+    authoritative, and a typo shouldn't pollute the keyword DB.
+    """
+    ids: list[int] = []
+    seen: set[int] = set()
+    unresolved: list[str] = []
+    for name in _split_csv(raw):
+        kw = repo.find_for_card_ref(name)
+        if kw is None:
+            unresolved.append(name)
+            continue
+        if kw.id not in seen:
+            ids.append(kw.id)
+            seen.add(kw.id)
+    return ids, unresolved
+
+
+def _keyword_names_for_display(ids: list[int] | None, repo: KeywordRepository) -> str:
+    """Render a row's stored keyword id list as a human-readable comma-list
+    so the edit form can round-trip them as names."""
+    if not ids:
+        return ""
+    parts: list[str] = []
+    for kid in ids:
+        kw = repo.get(kid)
+        if kw is not None:
+            parts.append(kw.name)
+    return ", ".join(parts)
+
+
+def _canonicalize_related_names(raw: str | None, db: Session) -> list[str]:
+    """Auto-correct casing on a CSV related-cards list against existing
+    Card / Token rows. Phase 1.6 prompt 3 bug 5 (manual-edit side)."""
+    cards = CardRepository(db)
+    tokens = TokenRepository(db)
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw_name in _split_csv(raw):
+        canonical = raw_name
+        for repo in (cards, tokens):
+            hit = repo.find_by_identity(raw_name)
+            if hit is not None:
+                canonical = hit.name
+                break
+            ci = repo.find_by_name_ci(raw_name)
+            if ci:
+                canonical = ci[0].name
+                break
+        key = canonical.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(canonical)
+    return out
+
+
 def _maybe_int(raw: str | None) -> int | None:
     if raw is None or not str(raw).strip():
         return None
@@ -82,7 +146,13 @@ def cards_new(request: Request):
     return templates.TemplateResponse(
         request,
         "cards/edit.html",
-        {"request": request, "card": None, "action": "/cards/new", "is_new": True},
+        {
+            "request": request,
+            "card": None,
+            "action": "/cards/new",
+            "is_new": True,
+            "keyword_names_value": "",
+        },
     )
 
 
@@ -104,6 +174,9 @@ def cards_edit(request: Request, card_id: int, db: Session = Depends(get_db)):
             "card": card,
             "action": f"/cards/{card_id}/edit",
             "is_new": False,
+            "keyword_names_value": _keyword_names_for_display(
+                card.keyword_ids, KeywordRepository(db)
+            ),
         },
     )
 
@@ -150,7 +223,6 @@ async def _save_card(request: Request, db: Session, *, existing: Card | None):
     existing.toughness = _maybe_text(form.get("toughness"))
     existing.flavor_text = _maybe_text(form.get("flavor_text"))
     existing.rule_text = _maybe_text(form.get("rule_text"))
-    existing.abilities = _maybe_text(form.get("abilities"))
     existing.design_type = (form.get("design_type") or "Normal").strip() or "Normal"
     existing.notes = _maybe_text(form.get("notes"))
     existing.alias = _maybe_text(form.get("alias"))
@@ -158,10 +230,24 @@ async def _save_card(request: Request, db: Session, *, existing: Card | None):
     existing.rarity = (form.get("rarity") or "common").strip() or "common"
     existing.power_level = _maybe_int(form.get("power_level"))
     existing.starting_loyalty = _maybe_int(form.get("starting_loyalty"))
-    existing.related_cards = _split_csv(form.get("related_cards"))
+    existing.related_cards = _canonicalize_related_names(form.get("related_cards"), db)
     existing.sets = _split_csv(form.get("sets"))
     existing.alt_arts = _split_csv(form.get("alt_arts"))
-    existing.keyword_ids = _split_csv_int(form.get("keyword_ids"))
+    kw_ids, unresolved = _resolve_keyword_names_to_ids(
+        form.get("keyword_names"), KeywordRepository(db)
+    )
+    existing.keyword_ids = kw_ids
+    if unresolved:
+        # Surface unresolved names in the action log so the user can fix
+        # them after the redirect.
+        from mse_viewer.repository import LogRepository
+
+        LogRepository(db).create_action(
+            title=f"Unresolved keyword(s) on {existing.name!r}",
+            body="\n".join(f"  - {n}" for n in unresolved),
+            payload={"card_id": existing.id, "unresolved": unresolved},
+            card_id=existing.id,
+        )
     db.commit()
     return RedirectResponse(f"/cards/{existing.id}", status_code=303)
 
@@ -176,7 +262,13 @@ def tokens_new(request: Request):
     return templates.TemplateResponse(
         request,
         "tokens/edit.html",
-        {"request": request, "token": None, "action": "/tokens/new", "is_new": True},
+        {
+            "request": request,
+            "token": None,
+            "action": "/tokens/new",
+            "is_new": True,
+            "keyword_names_value": "",
+        },
     )
 
 
@@ -198,6 +290,9 @@ def tokens_edit(request: Request, token_id: int, db: Session = Depends(get_db)):
             "token": token,
             "action": f"/tokens/{token_id}/edit",
             "is_new": False,
+            "keyword_names_value": _keyword_names_for_display(
+                token.keyword_ids, KeywordRepository(db)
+            ),
         },
     )
 
@@ -242,15 +337,25 @@ async def _save_token(request: Request, db: Session, *, existing: Token | None):
     existing.toughness = _maybe_text(form.get("toughness"))
     existing.flavor_text = _maybe_text(form.get("flavor_text"))
     existing.rule_text = _maybe_text(form.get("rule_text"))
-    existing.abilities = _maybe_text(form.get("abilities"))
     existing.design_type = (form.get("design_type") or "Normal").strip() or "Normal"
     existing.notes = _maybe_text(form.get("notes"))
     existing.alias = _maybe_text(form.get("alias"))
     existing.printed = _bool(form.get("printed"))
-    existing.related_cards = _split_csv(form.get("related_cards"))
-    existing.sets = _split_csv(form.get("sets"))
+    existing.related_cards = _canonicalize_related_names(form.get("related_cards"), db)
     existing.alt_arts = _split_csv(form.get("alt_arts"))
-    existing.keyword_ids = _split_csv_int(form.get("keyword_ids"))
+    kw_ids, unresolved = _resolve_keyword_names_to_ids(
+        form.get("keyword_names"), KeywordRepository(db)
+    )
+    existing.keyword_ids = kw_ids
+    if unresolved:
+        from mse_viewer.repository import LogRepository
+
+        LogRepository(db).create_action(
+            title=f"Unresolved keyword(s) on token {existing.name!r}",
+            body="\n".join(f"  - {n}" for n in unresolved),
+            payload={"token_id": existing.id, "unresolved": unresolved},
+            token_id=existing.id,
+        )
     db.commit()
     return RedirectResponse(f"/tokens/{existing.id}", status_code=303)
 

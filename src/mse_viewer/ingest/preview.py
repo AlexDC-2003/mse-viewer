@@ -162,7 +162,6 @@ def _face_snapshot(face: ParsedCardFace, *, colors, design_type) -> dict:
         "toughness": face.toughness,
         "flavor_text": face.flavor_text,
         "rule_text": face.rule_text,
-        "abilities": face.abilities,
         "design_type": design_type,
         "rarity": face.rarity,
         "alias": face.alias,
