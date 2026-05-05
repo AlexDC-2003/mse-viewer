@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from mse_viewer.db.session import get_db
 from mse_viewer.ingest.pipeline import IngestRepos
+from mse_viewer.repository import CardRepository, TokenRepository
 from mse_viewer.services.ingest_session import IngestSessionStore, get_session_store
 from mse_viewer.web.templating import templates
 
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/review", tags=["review"])
 def review_current(
     request: Request,
     session_id: str,
+    db: Session = Depends(get_db),
     store: IngestSessionStore = Depends(get_session_store),
 ):
     session = store.get(session_id)
@@ -28,6 +30,15 @@ def review_current(
             {"request": request, "session": session},
         )
     preview = session.current()
+    cards_repo = CardRepository(db)
+    tokens_repo = TokenRepository(db)
+    distinct_design_types = sorted(
+        set(cards_repo.distinct_design_types()) | set(tokens_repo.distinct_design_types())
+    )
+    distinct_rarities = cards_repo.distinct_rarities()
+    distinct_colors = sorted(
+        set(cards_repo.distinct_colors()) | set(tokens_repo.distinct_colors())
+    )
     return templates.TemplateResponse(
         request,
         "review_modal.html",
@@ -38,6 +49,9 @@ def review_current(
             "warnings": preview.warnings.warnings if preview else [],
             "index": session.cursor + 1,
             "total": session.review_total,
+            "distinct_design_types": distinct_design_types,
+            "distinct_rarities": distinct_rarities,
+            "distinct_colors": distinct_colors,
         },
     )
 

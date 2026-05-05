@@ -19,11 +19,17 @@
         <dt>Design type</dt><dd>{{ card.design_type }}</dd>
         <dt>Sets</dt><dd>{{ card.sets|join(", ") or "—" }}</dd>
         <dt>Alt arts</dt><dd>{{ card.alt_arts|join(", ") or "—" }}</dd>
-        <dt>Related cards</dt><dd>{{ card.related_cards|join(", ") or "—" }}</dd>
+        <dt>Alias</dt><dd>{{ card.alias or "—" }}</dd>
+        <dt>Related cards</dt>
+        <dd>
+            {% if related %}
+                {% for r in related %}{% if r.href %}<a href="{{ r.href }}">{{ r.name }}</a>{% else %}{{ r.name }} <small>(missing)</small>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+            {% else %}—{% endif %}
+        </dd>
     </dl>
     <h4>Rule text</h4>
     {% if card.rule_text %}
-        <div class="rule-text">{{ card.rule_text | render_text }}</div>
+        <div class="rule-text">{{ card.rule_text | render_rule_text(keyword_reminders) }}</div>
     {% else %}
         <p>—</p>
     {% endif %}

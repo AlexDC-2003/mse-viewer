@@ -46,6 +46,10 @@ class CardCoreMixin:
     design_type: Mapped[str] = mapped_column(String(64), nullable=False, default="Normal")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     printed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # MSE's free-text relationship field. The structured prefixes (``Evo:``,
+    # ``Evolved:``, ``Related:``) are still mined into ``related_cards``; this
+    # column captures the raw value verbatim so we don't drop information.
+    alias: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

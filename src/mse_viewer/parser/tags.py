@@ -185,6 +185,15 @@ _RE_REMINDER = re.compile(
 )
 
 
+# Bare ``<key>X</key>`` references whose body is one of these verb forms are
+# *not* real keyword invocations — MSE wraps them in ``<kw-N>`` for spell-check
+# styling, but the surrounding sentence treats them as plain English (e.g.
+# ``When you <key>evolve</key> Foo into Bar, …``).  We only suppress when there
+# is no ``<atom-param>`` and no ``<atom-reminder…>`` — those signal a real
+# parameterised invocation that we must keep.
+_VERB_FORM_BLOCKLIST = frozenset({"evolve", "evolves", "evolved", "evolving"})
+
+
 def iter_keyword_invocations(text: str) -> list[tuple[str, list[str], str | None]]:
     """Return every keyword invocation as ``(key_text, [param_values], reminder_text|None)``.
 
@@ -210,16 +219,33 @@ def iter_keyword_invocations(text: str) -> list[tuple[str, list[str], str | None
             continue
         params = [p.group(1) for p in _RE_ATOM_PARAM.finditer(body)]
         reminder = _capture_reminder_inside(body) or _capture_reminder_after(text, m.end())
-        out.append((_clean_key_text(key_match.group(1)), params, reminder))
+        key_text = _clean_key_text(key_match.group(1))
+        if _is_verb_form_noise(key_text, params, reminder):
+            seen_spans.append(m.span())  # still suppress the standalone-loop dup
+            continue
+        out.append((key_text, params, reminder))
         seen_spans.append(m.span())
 
     for m in _RE_KEY.finditer(text):
         if any(s <= m.start() < e for s, e in seen_spans):
             continue
         reminder = _capture_reminder_after(text, m.end())
-        out.append((_clean_key_text(m.group(1)), [], reminder))
+        key_text = _clean_key_text(m.group(1))
+        if _is_verb_form_noise(key_text, [], reminder):
+            continue
+        out.append((key_text, [], reminder))
 
     return out
+
+
+def _is_verb_form_noise(key_text: str, params: list[str], reminder: str | None) -> bool:
+    """True when a ``<key>X</key>`` reference is a sentence-internal verb, not
+    a real keyword invocation. Triggers only on a bare reference (no params,
+    no reminder) whose key text is in :data:`_VERB_FORM_BLOCKLIST`.
+    """
+    if params or reminder:
+        return False
+    return key_text.strip().lower() in _VERB_FORM_BLOCKLIST
 
 
 def _capture_reminder_inside(body: str) -> str | None:
@@ -245,7 +271,14 @@ def _clean_reminder(inner: str) -> str | None:
     inner = _RE_STRAY_SYM.sub("", inner)
     inner = _RE_STRAY_KW.sub("", inner)
     inner = re.sub(r"</?(?:i|i-auto|i-flavor|b)>", "", inner)
-    return _collapse_inline_whitespace(inner).strip() or None
+    cleaned = _collapse_inline_whitespace(inner).strip()
+    # MSE wraps reminders in parens for rendering — the parens belong to the
+    # display layer, so peel them off before storing. Only strip when both
+    # ends are present so we don't mangle text that happens to start or end
+    # with a single bracket for other reasons.
+    if cleaned.startswith("(") and cleaned.endswith(")") and len(cleaned) >= 2:
+        cleaned = cleaned[1:-1].strip()
+    return cleaned or None
 
 
 def _clean_key_text(s: str) -> str:

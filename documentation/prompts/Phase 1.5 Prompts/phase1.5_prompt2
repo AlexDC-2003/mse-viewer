@@ -1,0 +1,12 @@
+Ok, most works.
+
+Here is another adition:
+When the UI prints the rule text in the detail page, please add the reminder for all the keywords that are single on the line (aka, after the keyword, a linebreak follows) that don't have that reminder.
+
+Also, a token has "Triple strike (no definition yet)". I checked, that triple strike is marked indeed as a stub, but it also has the reminder set. The keyword is not defined by the set file. That token however, does have its reminder printed in the rule text. But triple strike is a multiple word keyword anyway, so the thing we did to infer shouldn't trigger, so what happened?
+
+Also, for the save in cards db/ save in tokens db prompt, can you switch the choices around? So save in token db is first (and the default selected), and cards db is second)
+
+Otherwise, I think everything works perfectly.
+
+So yeah, fix those issues, then do wave 2 please. Also, as more info, the alias column doesn;t need to be on the table view, just the detail page. 

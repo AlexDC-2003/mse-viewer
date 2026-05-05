@@ -37,6 +37,30 @@ def _has_atom_params(s: str) -> bool:
     return bool(_RE_ATOM_PARAM.search(s or ""))
 
 
+def _is_self_defining(name: str) -> bool:
+    """A keyword whose captured reminder body counts as a full definition.
+
+    Any non-empty name without an ``<atom-param>`` slot qualifies — both
+    single-word (Haste, Trample) and multi-word (Triple strike, Ward 3) forms.
+    Names that already contain an ``<atom-param>`` slot still need an
+    explicit ``keyword:`` block because parameterisation is the source of
+    truth for which slots accept which kinds of value.
+
+    Trade-off (decision 2026-05-04): a multi-word stub name like ``Ward 3``
+    is now auto-promoted on first import. If the user later imports a
+    formal ``Ward <atom-param>cost</atom-param>`` block, the existing
+    absorption logic only merges ``is_stub=True`` rows, so the auto-
+    promoted ``Ward 3`` / ``Ward 2`` rows stay as separate non-stub
+    keywords alongside the parameterised one. The user accepted this in
+    exchange for not having to manually fill in reminders that the parser
+    already captured correctly.
+    """
+    n = (name or "").strip()
+    if not n:
+        return False
+    return not _has_atom_params(n)
+
+
 def _strip_inline_tags(s: str) -> str:
     return re.sub(r"<[^>]+>", "", s or "").strip()
 
@@ -184,24 +208,25 @@ class KeywordRepository:
         from the trailing ``<atom-reminder>`` block that followed the
         invocation in rule text — gives the stub a useful body so the
         Keywords list isn't a wall of empty rows (init_prompt_5 #5).
+
+        For single-word keywords (no whitespace, no ``<atom-param>``) the
+        captured reminder *is* the definition: when one shows up the row is
+        auto-promoted to ``is_stub=False`` so it stops appearing as a TODO.
         """
         existing = self.find_for_card_ref(ref_text)
         if existing is not None:
-            # If the existing row is a stub and we now have a reminder, fill it
-            # in (don't overwrite an already-populated reminder).
-            if existing.is_stub and reminder and not existing.reminder:
-                existing.reminder = reminder
-                self.db.flush()
+            self.maybe_backfill_reminder(existing, reminder)
             return existing
         canonical = _stub_canonical(ref_text)
         if not canonical:
             canonical = ref_text.strip() or "?"
         existing_ci = self.find_by_match_ci(canonical)
         if existing_ci is not None:
-            if existing_ci.is_stub and reminder and not existing_ci.reminder:
-                existing_ci.reminder = reminder
-                self.db.flush()
+            self.maybe_backfill_reminder(existing_ci, reminder)
             return existing_ci
+        # Brand-new row: if it's single-word and we have a reminder, the
+        # reminder is enough — promote straight to a real definition.
+        promote = bool(reminder) and _is_self_defining(canonical)
         row = Keyword(
             name=canonical,
             source_keyword_field=canonical,
@@ -209,11 +234,26 @@ class KeywordRepository:
             reminder=reminder,
             rules=None,
             pseudo_keyword=False,
-            is_stub=True,
+            is_stub=not promote,
         )
         self.db.add(row)
         self.db.flush()
         return row
+
+    def maybe_backfill_reminder(self, kw: Keyword, reminder: str | None) -> None:
+        """Fill in a missing reminder on an existing stub and, if the keyword
+        is single-word, promote it out of stub state.  Never clobbers an
+        already-populated reminder.  Public so the ingest path can call it
+        when ``find_for_card_ref`` already returned a row (in which case
+        ``ensure_stub`` is *not* invoked and the reminder would otherwise be
+        dropped)."""
+        if not kw.is_stub or not reminder:
+            return
+        if not kw.reminder:
+            kw.reminder = reminder
+        if _is_self_defining(kw.name):
+            kw.is_stub = False
+        self.db.flush()
 
     # ---- stub absorption --------------------------------------------------
 

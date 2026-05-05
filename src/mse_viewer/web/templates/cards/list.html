@@ -17,9 +17,7 @@
             <th>P/T</th>
             <th>Rarity</th>
             <th>PWL</th>
-            <th>Design</th>
             <th>Sets</th>
-            <th>Alt arts</th>
             <th>Printed</th>
             <th>Rule text</th>
         </tr>
@@ -36,11 +34,9 @@
             </td>
             <td>{{ c.rarity }}</td>
             <td>{{ c.power_level if c.power_level is not none else "" }}</td>
-            <td>{{ c.design_type }}</td>
             <td>{{ c.sets|join(", ") }}</td>
-            <td>{{ c.alt_arts|join(", ") }}</td>
             <td>{{ "yes" if c.printed else "" }}</td>
-            <td><small>{{ c.rule_text | render_text_snippet }}</small></td>
+            <td><small>{{ c.rule_text | render_rule_text_snippet }}</small></td>
         </tr>
     {% endfor %}
     </tbody>
