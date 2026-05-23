@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Missing related cards — mse-viewer{% endblock %}
+{% block content %}
+<h1>Missing referenced cards <small>({{ rows|length }})</small></h1>
+<p><small>Names appear in some card's <code>related_cards</code> but no Card or Token has that identity. Either author the missing card, or edit the referrer to drop the link.</small></p>
+{% if rows %}
+<table>
+    <thead><tr><th>Missing identity</th><th>Referenced by</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td><strong>{{ r.target }}</strong></td>
+            <td>
+                {% for ref in r.referenced_by %}
+                    <a href="/{{ ref.kind }}s/{{ ref.id }}">{{ ref.name }}</a>
+                    <small>({{ ref.kind }})</small>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No missing references. 🎉</p>
+{% endif %}
+{% endblock %}

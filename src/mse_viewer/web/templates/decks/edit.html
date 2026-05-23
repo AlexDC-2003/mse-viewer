@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{% if is_new %}New deck{% else %}Edit {{ deck.name }}{% endif %} — mse-viewer{% endblock %}
+{% block content %}
+<h1>{% if is_new %}New deck{% else %}Edit deck: {{ deck.name }}{% endif %}</h1>
+<form action="{{ action }}" method="post">
+    <fieldset>
+        <legend>Identity</legend>
+        <label>Name (unique)
+            <input name="name" required value="{{ deck.name if deck else '' }}">
+        </label>
+        <label>Code
+            <input name="code" value="{{ deck.code or '' if deck else '' }}">
+        </label>
+        <div class="grid">
+            <label>Format
+                <select name="format" id="deck-format-select">
+                    {% set fmts = ["1v1", "ffa", "commander", "tester", "draft", "limited", "casual"] %}
+                    {% for f in fmts %}
+                        <option value="{{ f }}" {% if deck and deck.format == f %}selected{% elif not deck and f == "1v1" %}selected{% endif %}>{{ f }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Size <input type="number" name="size" value="{{ deck.size if deck else 60 }}"></label>
+        </div>
+        <div class="grid">
+            <label>Theme <input name="theme" value="{{ deck.theme or '' if deck else '' }}"></label>
+            <label>Archetype <input name="archetype" value="{{ deck.archetype or '' if deck else '' }}"></label>
+        </div>
+        <label>Owners (csv) <input name="owners" value="{{ deck.owners|join(', ') if deck else '' }}"></label>
+        <label>Colors (csv) <input name="colors" value="{{ deck.colors|join(', ') if deck else '' }}"></label>
+    </fieldset>
+    <fieldset id="commander-fields" style="display: none;">
+        <legend>Commander / tester fields</legend>
+        <label>Commander
+            <select name="commander_card_id">
+                <option value="">— none —</option>
+                {% for c in cards %}
+                    <option value="{{ c.id }}" {% if deck and deck.commander_card_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Package
+            <select name="package" id="deck-package-select">
+                <option value="">— none —</option>
+                {% for p in ["Core", "Expansion", "Supplement"] %}
+                    <option value="{{ p }}" {% if deck and deck.package == p %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Related deck IDs (csv)
+            <input name="related_decks" value="{{ deck.related_decks|join(', ') if deck else '' }}">
+            <small>
+                Meaningful when the package is Expansion or Supplement.
+                Available decks: {% for d in all_decks %}<code>{{ d.id }}={{ d.name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+            </small>
+        </label>
+    </fieldset>
+    <script>
+        (function () {
+            var fmt = document.getElementById("deck-format-select");
+            var commander = document.getElementById("commander-fields");
+            function syncFormat() {
+                var v = fmt && fmt.value;
+                var show = v === "commander" || v === "tester";
+                if (commander) commander.style.display = show ? "" : "none";
+            }
+            if (fmt) fmt.addEventListener("change", syncFormat);
+            syncFormat();
+        })();
+    </script>
+    <fieldset>
+        <legend>Cards &amp; tokens</legend>
+        <label>One line per stack: <code>&lt;qty&gt; &lt;card_id&gt;</code> for cards or <code>&lt;qty&gt; t&lt;token_id&gt;</code> for tokens
+            <textarea name="deck_cards" rows="14">
+{%- if deck and deck.cards -%}
+{%- for dc in deck.cards -%}
+{%- if dc.card_id %}{{ dc.quantity }} {{ dc.card_id }}
+{% elif dc.token_id %}{{ dc.quantity }} t{{ dc.token_id }}
+{% endif -%}
+{%- endfor -%}
+{%- endif -%}</textarea>
+        </label>
+        <small>Card IDs:
+            {% for c in cards[:50] %}<code>{{ c.id }}={{ c.name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+            {% if cards|length > 50 %}… <a href="/cards">browse</a>{% endif %}
+        </small>
+        <small>Token IDs:
+            {% for t in tokens[:50] %}<code>t{{ t.id }}={{ t.name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+            {% if tokens|length > 50 %}… <a href="/tokens">browse</a>{% endif %}
+        </small>
+    </fieldset>
+    <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
+    {% if not is_new %}
+        <a href="/decks/{{ deck.id }}" role="button" class="secondary">Cancel</a>
+    {% else %}
+        <a href="/decks" role="button" class="secondary">Cancel</a>
+    {% endif %}
+</form>
+{% if not is_new %}
+<form action="/decks/{{ deck.id }}/delete" method="post" onsubmit="return confirm('Delete this deck?')">
+    <button type="submit" class="contrast">Delete</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -39,9 +39,9 @@ class ParsedCardFace(BaseModel):
     styling_data: dict[str, str] = Field(default_factory=dict)
     power: str | None = None
     toughness: str | None = None
+    starting_loyalty: int | None = None  # planeswalker only
     flavor_text: str | None = None
     rule_text: str | None = None      # canonicalized text
-    abilities: str | None = None      # canonicalized text including kw bodies
     keyword_refs: list[str] = Field(default_factory=list)  # `<key>` text references
     # ref-text (lower-case) → reminder text captured from the trailing
     # ``<atom-reminder>`` block.  Used to enrich auto-created stubs.
@@ -70,6 +70,10 @@ class ParsedSet(BaseModel):
     header: ParsedSetHeader
     keywords: list[ParsedKeyword] = Field(default_factory=list)
     cards: list[ParsedCard] = Field(default_factory=list)
+    # ``keyword:`` blocks dropped at parse time because their identity matches
+    # the reject-list (Phase 1.6 prompt 3 change 13). Surfaced into the
+    # action log by the ingest session so the user can audit deletions.
+    rejected_keywords: list[str] = Field(default_factory=list)
 
 
 # ------ ingestion-time enrichment models ----------------------------------

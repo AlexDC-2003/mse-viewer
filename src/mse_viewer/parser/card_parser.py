@@ -4,6 +4,7 @@ import re
 
 from .models import ParsedCard, ParsedCardFace
 from .notes_parser import parse_notes
+from .special_text import extract_italic_flavor, parse_starting_loyalty
 from .tags import (
     canonicalize_flavor,
     canonicalize_text,
@@ -63,9 +64,31 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
     super_type = _join_type_chain(node, "super_type", suffix, is_dfc=is_dfc)
     sub_type = _join_type_chain(node, "sub_type", suffix, is_dfc=is_dfc) or None
 
-    rule_text_raw = node.get(f"rule_text{suffix}") or ""
+    frame = detect_frame(super_type, sub_type)
+
+    # Choose where rule text comes from based on frame:
+    #   * Planeswalker / Saga prefer ``special_text`` (which assembles the
+    #     loyalty/level chapters into a single readable block) and fall back
+    #     to ``rule_text`` if it's empty.
+    #   * Everything else (Normal, Emblem, Leyline) reads ``rule_text``.
+    if frame in ("planeswalker", "saga"):
+        primary = node.get(f"special_text{suffix}") or ""
+        rule_text_raw = primary if primary.strip() else (node.get(f"rule_text{suffix}") or "")
+    else:
+        rule_text_raw = node.get(f"rule_text{suffix}") or ""
+
+    extra_flavor_raw = ""
+    # Italic-flavor extraction for Leyline / Saga: pull `<i>...</i>` spans
+    # out of rule text into flavor before canonicalization. Saga's first
+    # non-empty line is protected (Read-ahead reminder, etc.).
+    if frame == "leyline":
+        rule_text_raw, extra_flavor_raw = extract_italic_flavor(rule_text_raw)
+    elif frame == "saga":
+        rule_text_raw, extra_flavor_raw = extract_italic_flavor(
+            rule_text_raw, protect_first_line=True
+        )
+
     rule_text_canon = canonicalize_text(rule_text_raw) or None
-    abilities = rule_text_canon  # Phase 1: same content
     # Case-insensitive dedup of keyword refs: lower-case as the dedup key,
     # preserve the first-seen casing for display / lookup.  Reminder text from
     # the trailing ``<atom-reminder>`` block (if any) is kept alongside so the
@@ -83,6 +106,10 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
 
     flavor_raw = node.get(f"flavor_text{suffix}") or ""
     flavor = canonicalize_flavor(flavor_raw) or None
+    if extra_flavor_raw:
+        extracted = canonicalize_flavor(extra_flavor_raw)
+        if extracted:
+            flavor = f"{flavor}\n{extracted}" if flavor else extracted
 
     casting_cost = node.get(f"casting_cost{suffix}") or None
     indicator = node.get(f"indicator{suffix}") or None
@@ -112,8 +139,22 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
                         related_from_notes.append(related_name)
                 break
 
+    # Emblems carry the producing planeswalker's name in ``sub_type`` — auto-add
+    # it as a related card so the cross-link surfaces in the UI without requiring
+    # a Related: entry in notes.
+    if frame == "emblem" and sub_type:
+        related_from_notes.append(sub_type.strip())
+
+    # Dedup while preserving first-seen order.
+    related_from_notes = list(dict.fromkeys(n for n in related_from_notes if n))
+
     power = node.get(f"power{suffix}") or None
     toughness = node.get(f"toughness{suffix}") or None
+    starting_loyalty = (
+        parse_starting_loyalty(node.get(f"loyalty{suffix}") or node.get("loyalty"))
+        if frame == "planeswalker"
+        else None
+    )
 
     return ParsedCardFace(
         name=name,
@@ -129,9 +170,9 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
         styling_data=styling_data,
         power=power,
         toughness=toughness,
+        starting_loyalty=starting_loyalty,
         flavor_text=flavor,
         rule_text=rule_text_canon,
-        abilities=abilities,
         keyword_refs=keyword_refs,
         keyword_reminders=keyword_reminders,
         notes=notes,
@@ -139,6 +180,44 @@ def _face_from_node(node: MseNode, *, suffix: str, is_dfc: bool = False) -> Pars
         alias=alias_field or None,
         related_from_notes=related_from_notes,
     )
+
+
+# ---------------------------------------------------------------------------
+# Frame detection
+# ---------------------------------------------------------------------------
+
+
+def detect_frame(super_type: str, sub_type: str | None) -> str:
+    """Identify a face's frame family from its type line.
+
+    Returns one of ``"planeswalker"``, ``"emblem"``, ``"saga"``, ``"leyline"``,
+    ``"normal"``. Stylesheet is intentionally ignored — users reuse stylesheets
+    for unrelated frames, so the type line is the only reliable signal.
+
+    Order matters: ``Emblem`` is checked before ``Planeswalker`` because some
+    emblems carry ``Planeswalker`` in their subtype chain. Saga and Leyline
+    only fire on Enchantment frames.
+    """
+    s = (super_type or "").lower()
+    sub = (sub_type or "").lower()
+    if "emblem" in s:
+        return "emblem"
+    if "planeswalker" in s:
+        return "planeswalker"
+    if "enchantment" in s:
+        if "saga" in sub:
+            return "saga"
+        if "leyline" in sub:
+            return "leyline"
+    return "normal"
+
+
+def is_evolution_planeswalker(super_type: str) -> bool:
+    """A Planeswalker whose type line also mentions Evolution. Such cards
+    always carry an alias, so the alias signal that normally indicates a
+    non-Normal design type does not apply."""
+    s = (super_type or "").lower()
+    return "planeswalker" in s and "evolution" in s
 
 
 # ---------------------------------------------------------------------------

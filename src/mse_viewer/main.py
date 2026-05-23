@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from mse_viewer.web.routes import browse, home, log, review, upload
+from mse_viewer.web.routes import browse, edit, home, log, review, upload
 
 
 def create_app() -> FastAPI:
@@ -23,6 +23,10 @@ def create_app() -> FastAPI:
     app.include_router(home.router)
     app.include_router(upload.router)
     app.include_router(review.router)
+    # ``edit`` must register before ``browse`` so static paths like
+    # ``/cards/new`` resolve before ``/cards/{card_id}`` (Phase 1.6 prompt 3
+    # bug 2 — FastAPI was trying to coerce "new" to int otherwise).
+    app.include_router(edit.router)
     app.include_router(browse.router)
     app.include_router(log.router)
     return app

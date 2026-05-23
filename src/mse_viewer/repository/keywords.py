@@ -113,6 +113,35 @@ class KeywordRepository:
             stmt = stmt.where(Keyword.is_stub.is_(False))
         return list(self.db.execute(stmt).scalars())
 
+    def list_stubs(self) -> list[Keyword]:
+        """Stub-only listing for the dashboard."""
+        stmt = select(Keyword).where(Keyword.is_stub.is_(True)).order_by(Keyword.name)
+        return list(self.db.execute(stmt).scalars())
+
+    def search(self, query: str, *, limit: int = 200) -> list[Keyword]:
+        """Match ``query`` against keyword name, reminder, and rules text;
+        whitelist tags (``<i>``/``<b>``/``<em>``) are stripped from the body
+        columns the same way :meth:`CardRepository.search` does it."""
+        q = f"%{query.strip().lower()}%"
+        tag_re = r"</?(i|b|em)>"
+        reminder_clean = func.regexp_replace(
+            func.coalesce(func.lower(Keyword.reminder), ""), tag_re, "", "gi"
+        )
+        rules_clean = func.regexp_replace(
+            func.coalesce(func.lower(Keyword.rules), ""), tag_re, "", "gi"
+        )
+        stmt = (
+            select(Keyword)
+            .where(
+                func.lower(Keyword.name).like(q)
+                | reminder_clean.like(q)
+                | rules_clean.like(q)
+            )
+            .order_by(Keyword.name)
+            .limit(limit)
+        )
+        return list(self.db.execute(stmt).scalars())
+
     def get(self, id_: int) -> Keyword | None:
         return self.db.get(Keyword, id_)
 
@@ -300,3 +329,63 @@ class KeywordRepository:
                         new_ids.append(resolved)
                         seen.add(resolved)
                 row.keyword_ids = new_ids  # reassign so SA flushes the change
+
+    def propagate_change(
+        self,
+        kw_id: int,
+        *,
+        old_name: str | None,
+        new_name: str | None,
+        old_reminder: str | None,
+        new_reminder: str | None,
+    ) -> int:
+        """Update card / token rule_text bodies when a keyword is renamed
+        or its reminder changes (Phase 1.6 prompt 4 item 4 / Bug 10).
+
+        Best-effort find-and-replace:
+          * The old name (case-insensitive, word-boundary) is replaced with
+            the new name across rule_text on every Card / Token whose
+            ``keyword_ids`` mentions ``kw_id``.
+          * If both old and new reminders are non-empty and differ, the
+            literal substring ``"(<old reminder>)"`` is replaced with
+            ``"(<new reminder>)"`` in the same set of rows.
+
+        Returns the number of rows touched. The substitutions are
+        intentionally simple — for edge cases (reminder body that's a
+        substring of another, or names that share a stem with a different
+        keyword) the user can fix manually via the edit form.
+        """
+        old_name = (old_name or "").strip()
+        new_name = (new_name or "").strip()
+        name_changed = bool(old_name and new_name and old_name != new_name)
+        reminder_changed = bool(
+            old_reminder and new_reminder and old_reminder != new_reminder
+        )
+        if not name_changed and not reminder_changed:
+            return 0
+        name_pattern = (
+            re.compile(r"\b" + re.escape(old_name) + r"\b", re.IGNORECASE)
+            if name_changed
+            else None
+        )
+
+        affected = 0
+        for Model in (Card, Token):
+            stmt = select(Model).where(Model.keyword_ids.contains([kw_id]))
+            for row in self.db.execute(stmt).scalars():
+                text = row.rule_text or ""
+                if not text:
+                    continue
+                new_text = text
+                if name_pattern is not None:
+                    new_text = name_pattern.sub(new_name, new_text)
+                if reminder_changed:
+                    new_text = new_text.replace(
+                        f"({old_reminder})", f"({new_reminder})"
+                    )
+                if new_text != text:
+                    row.rule_text = new_text
+                    affected += 1
+        if affected:
+            self.db.flush()
+        return affected

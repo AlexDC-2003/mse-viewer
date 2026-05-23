@@ -22,3 +22,12 @@ nav ul { gap: .5rem; }
 /* Scroll target highlight when the log redirects with #entry-N. */
 html { scroll-behavior: smooth; }
 tr:target { background: var(--pico-mark-background-color, #fff7c2); transition: background .8s ease-out; }
+
+/* "Additional information" rows / columns — hidden by default, shown when
+   the body has the .show-additional class (toggled from the nav header,
+   persisted in localStorage). Phase 1.6 prompt 4 item 5. */
+body:not(.show-additional) .additional-info { display: none; }
+body:not(.show-additional) col.additional-info,
+body:not(.show-additional) th.additional-info,
+body:not(.show-additional) td.additional-info { display: none; }
+.additional-toggle { font-size: .85rem; }

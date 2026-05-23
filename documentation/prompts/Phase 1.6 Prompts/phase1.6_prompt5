@@ -1,0 +1,30 @@
+Bug 1: The deck related decks (if deck format is commander) field/option isn't present
+
+Bug 2: When I select formal commander, I want the deck size to be set to 100 as the default, like 60 is for 1v1 decks
+
+Bug/change 3: I want decks to also hold a list of token cards, just like the regular cards. Obviously, cards in the deck input that are reffed in the token db should be added to the list
+
+Bug 4: BRO, 
+"Rule text
+Evolve: Grizzly Bear (To cast this spell, you must transform a Grizzly Bear.)
+Evocycling (Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)
+Haste, vigilance, reach, resilient (Effects that say “destroy” don’t destroy this creature.)
+Omni-strike (Whenever this creature attacks and deals combat damage, it deals that much damage to each creature the defending player controls.)
+Hunt (Whenever a creature enters the battlefield under an opponent’s control, it fights this creature.)
+Marked damage on Alpha Grizzly can’t be removed."
+
+I WANT THE "Haste, vigilance, reach, resilient (Effects that say “destroy” don’t destroy this creature.)" line to be on individual lines each, like this:
+Haste (...)
+Vigilance (...)
+Reach (...)
+Resilient (...)
+
+please fix this bug properly
+
+Fix these bugs.
+
+Only after you are done with all this, I have made a new file at documentation/files/todolist.md 
+I want you to put all the to do items for the entire app & all phases in that file, so we have a unified version list of to do items
+
+Also, while you read go over the prompts/responses, please update the CLAUDE.md if needed, 
+and if there would be a better way to convey information for you for future use, that say points to where to look for certain topics in my documentation, please put that in CLAUDE.md, so you don't need to go through the entire documentation all the time

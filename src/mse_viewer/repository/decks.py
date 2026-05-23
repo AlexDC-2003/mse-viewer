@@ -42,3 +42,20 @@ class DeckRepository:
         self.db.add(row)
         self.db.flush()
         return row
+
+    def add_token(self, deck: Deck, token_id: int, quantity: int = 1) -> DeckCard:
+        """Symmetric counterpart of :meth:`add_card` for token members
+        (Phase 1.6 prompt 5 bug/change 3)."""
+        existing = self.db.execute(
+            select(DeckCard).where(
+                DeckCard.deck_id == deck.id, DeckCard.token_id == token_id
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            existing.quantity = max(existing.quantity, quantity)
+            self.db.flush()
+            return existing
+        row = DeckCard(deck_id=deck.id, token_id=token_id, quantity=quantity)
+        self.db.add(row)
+        self.db.flush()
+        return row

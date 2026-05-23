@@ -12,7 +12,13 @@ from threading import Lock
 from typing import Iterable
 from uuid import uuid4
 
-from mse_viewer.ingest.pipeline import IngestRepos, commit_face, commit_keywords
+from mse_viewer.ingest.deck import DeckIngestPlan
+from mse_viewer.ingest.pipeline import (
+    IngestRepos,
+    commit_face,
+    commit_keywords,
+    log_rejected_keywords,
+)
 from mse_viewer.ingest.preview import FacePreview, build_preview
 from mse_viewer.parser.models import ParsedSet
 
@@ -31,6 +37,11 @@ class IngestSession:
     auto_committed_count: int = 0
     parsed_total: int = 0
     finished: bool = False
+    # Deck-mode companion data. None for plain set ingests; populated when the
+    # upload arrived through ``mode=deck`` and finalized once the review queue
+    # drains (see :func:`finalize_deck`).
+    deck_plan: DeckIngestPlan | None = None
+    deck_id: int | None = None
 
     @property
     def review_total(self) -> int:
@@ -51,6 +62,27 @@ class IngestSession:
         self.cursor += 1
         if self.cursor >= self.review_total:
             self.finished = True
+
+
+def _row_snapshot(row) -> dict:
+    """Snapshot a Card / Token row to the same shape as
+    :func:`mse_viewer.ingest.preview._face_snapshot` for diff rendering."""
+    return {
+        "card_type": row.card_type,
+        "card_subtype": row.card_subtype,
+        "colors": list(row.colors or []),
+        "casting_cost": row.casting_cost,
+        "power": row.power,
+        "toughness": row.toughness,
+        "flavor_text": row.flavor_text,
+        "rule_text": row.rule_text,
+        "design_type": getattr(row, "design_type", None),
+        "rarity": getattr(row, "rarity", None),
+        "alias": row.alias,
+        "starting_loyalty": getattr(row, "starting_loyalty", None),
+        "related_cards": list(row.related_cards or []),
+        "printed": bool(getattr(row, "printed", False)),
+    }
 
 
 def _needs_review(preview: FacePreview) -> bool:
@@ -75,14 +107,25 @@ class IngestSessionStore:
         set_name: str,
         pwl_defaults: dict[str, int],
         repos: IngestRepos,
+        deck_plan: DeckIngestPlan | None = None,
     ) -> IngestSession:
         # Pre-pass: write all keyword definitions so cards can FK them.
         keyword_ids = commit_keywords(parsed.keywords, repos)
+        if parsed.rejected_keywords:
+            log_rejected_keywords(parsed.rejected_keywords, repos)
         repos.db.commit()
 
         # Build per-face previews up-front.
         existing_card_ids = repos.cards.existing_identities()
         existing_token_ids = repos.tokens.existing_identities()
+
+        def _existing_lookup(name: str, route: str):
+            repo = repos.tokens if route == "token" else repos.cards
+            row = repo.find_by_identity(name)
+            if row is None:
+                return None
+            return _row_snapshot(row)
+
         all_previews: list[FacePreview] = []
         for card in parsed.cards:
             for face in card.faces:
@@ -93,6 +136,7 @@ class IngestSessionStore:
                         existing_card_identities=existing_card_ids,
                         existing_token_identities=existing_token_ids,
                         playbook_lookup=repos.playbook.design_type_lookup,
+                        existing_lookup=_existing_lookup,
                     )
                 )
 
@@ -132,9 +176,12 @@ class IngestSessionStore:
             committed=committed,
             skipped=skipped,
             parsed_total=len(all_previews),
+            deck_plan=deck_plan,
         )
         if not review_queue:
             session.finished = True
+            if deck_plan is not None:
+                _finalize_deck(session, repos)
         with self._lock:
             self._sessions[session.id] = session
         return session
@@ -168,10 +215,66 @@ class IngestSessionStore:
             if result.record_id is not None:
                 session.committed.append(result.record_id)
         session.advance()
+        if session.finished and session.deck_plan is not None and session.deck_id is None:
+            _finalize_deck(session, repos)
 
     def discard(self, session_id: str) -> None:
         with self._lock:
             self._sessions.pop(session_id, None)
+
+
+def _finalize_deck(session: IngestSession, repos: IngestRepos) -> None:
+    """Create the Deck row + DeckCard links for a deck-mode session.
+
+    Runs once, when the review queue has drained. For each name in the
+    quantities map we resolve the Card via identity (case-insensitive
+    fallback), link it with the captured quantity, and log any names that
+    didn't resolve so the user can fix them after the fact.
+    """
+    plan = session.deck_plan
+    if plan is None:
+        return
+    # Re-check name conflict at finalize time — the user may have been
+    # writing decks in parallel.
+    if repos.decks.find_by_name(plan.meta["name"]):
+        repos.log.create_action(
+            title=f"Deck not created: name {plan.meta['name']!r} taken",
+            body="Resolve manually via Decks → Edit and re-run finalize.",
+            payload={"deck_meta": plan.meta},
+        )
+        repos.db.commit()
+        return
+    deck = repos.decks.create(**plan.meta)
+    missing: list[str] = []
+    for name, qty in plan.quantities.items():
+        # Phase 1.6 prompt 5 bug/change 3: tokens are first-class deck
+        # members. Prefer a Card with this identity, fall back to a Token,
+        # log if neither resolves.
+        card = repos.cards.find_by_identity(name)
+        if card is None:
+            ci = repos.cards.find_by_name_ci(name)
+            if ci:
+                card = ci[0]
+        if card is not None:
+            repos.decks.add_card(deck, card.id, quantity=qty)
+            continue
+        token = repos.tokens.find_by_identity(name)
+        if token is None:
+            ti = repos.tokens.find_by_name_ci(name)
+            if ti:
+                token = ti[0]
+        if token is not None:
+            repos.decks.add_token(deck, token.id, quantity=qty)
+            continue
+        missing.append(name)
+    if missing:
+        repos.log.create_action(
+            title=f"Deck {deck.name!r}: {len(missing)} member(s) not linked",
+            body="\n".join(f"{n!r} (no Card or Token row found)" for n in missing),
+            payload={"deck_id": deck.id, "missing": missing},
+        )
+    repos.db.commit()
+    session.deck_id = deck.id
 
 
 def _apply_modal_answers(preview: FacePreview, *, action: str, data: dict) -> None:

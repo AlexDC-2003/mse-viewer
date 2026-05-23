@@ -23,6 +23,34 @@
     </section>
     {% endif %}
 
+    {# Side-by-side diff for identity_conflict / modifies_printed warnings. #}
+    {% set ns_diff = namespace(diff=none, kind=none) %}
+    {% for w in warnings %}
+        {% if w.kind in ("modifies_printed", "identity_conflict") and w.payload and w.payload.get("diff") %}
+            {% if ns_diff.diff is none or w.kind == "modifies_printed" %}
+                {% set ns_diff.diff = w.payload.get("diff") %}
+                {% set ns_diff.kind = w.kind %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+    {% if ns_diff.diff %}
+    <section>
+        <h4>{% if ns_diff.kind == "modifies_printed" %}⚠ Changes to printed card{% else %}Changes vs existing record{% endif %}</h4>
+        <table>
+            <thead><tr><th>Field</th><th>Existing</th><th>Incoming</th></tr></thead>
+            <tbody>
+            {% for d in ns_diff.diff %}
+                <tr>
+                    <td><code>{{ d.field }}</code></td>
+                    <td><small>{{ d.old if d.old is not none else "—" }}</small></td>
+                    <td><small><strong>{{ d.new if d.new is not none else "—" }}</strong></small></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+
     <section class="grid">
         <div>
             <h4>Parsed values</h4>

@@ -13,22 +13,38 @@
         <dt>Colors</dt><dd>{{ deck.colors|join(", ") or "—" }}</dd>
         <dt>Package</dt><dd>{{ deck.package or "—" }}</dd>
     </dl>
-    <h4>Cards</h4>
+    <h4>Cards &amp; tokens</h4>
     {% if deck.cards %}
+    {% set total = deck.cards|sum(attribute='quantity') %}
     <table>
-        <thead><tr><th>Qty</th><th>Card</th></tr></thead>
+        <thead><tr><th>Qty</th><th>Member</th><th>Kind</th></tr></thead>
         <tbody>
         {% for dc in deck.cards %}
             <tr>
                 <td>{{ dc.quantity }}</td>
-                <td><a href="/cards/{{ dc.card.id }}">{{ dc.card.name }}</a></td>
+                <td>
+                    {% if dc.card_id %}
+                        <a href="/cards/{{ dc.card.id }}">{{ dc.card.name }}</a>
+                    {% elif dc.token_id %}
+                        <a href="/tokens/{{ dc.token.id }}">{{ dc.token.name }}</a>
+                    {% endif %}
+                </td>
+                <td><small>{{ dc.member_kind }}</small></td>
             </tr>
         {% endfor %}
         </tbody>
+        <tfoot>
+            <tr>
+                <th>{{ total }}</th>
+                <th>Total</th>
+                <th></th>
+            </tr>
+        </tfoot>
     </table>
     {% else %}
-        <p>No cards in this deck.</p>
+        <p>No cards or tokens in this deck.</p>
     {% endif %}
 </article>
 <a href="/decks" role="button" class="secondary">Back</a>
+<a href="/decks/{{ deck.id }}/edit" role="button">Edit</a>
 {% endblock %}

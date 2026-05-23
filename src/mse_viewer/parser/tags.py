@@ -147,6 +147,10 @@ _RE_WRAPPER_FIXED = re.compile(
 _RE_ATOM_SEP_FAMILY = re.compile(r"</?atom-sep(?:-[^>\s]+)?(?:\s[^>]*)?>", re.IGNORECASE)
 _RE_ATOM_REMINDER_FAMILY = re.compile(r"</?atom-reminder(?:-[^>\s]+)?(?:\s[^>]*)?>", re.IGNORECASE)
 _RE_PARAM_FAMILY = re.compile(r"</?param-[^>\s]+(?:\s[^>]*)?>", re.IGNORECASE)
+# ``<margin:130:0:0>...</margin:130:0:0>`` — MSE indents planeswalker level
+# bodies with a margin span. We don't render margins; strip the wrapper and
+# keep the inner text. Closing tag may repeat the params or omit them.
+_RE_MARGIN_FAMILY = re.compile(r"</?margin(?::[^>\s]*)?(?:\s[^>]*)?>", re.IGNORECASE)
 # Anything else that survived (and isn't an italic / bold we explicitly preserve).
 _RE_STRAY_SYM = re.compile(r"</?sym(?:-[^>\s]+)?(?:\s[^>]*)?>", re.IGNORECASE)
 # Stray, unpaired <kw-N> / </kw-N> tags that didn't match _RE_KW_BLOCK because
@@ -160,6 +164,7 @@ def strip_wrapper_tags(text: str) -> str:
     text = _RE_ATOM_SEP_FAMILY.sub("", text)
     text = _RE_ATOM_REMINDER_FAMILY.sub("", text)
     text = _RE_PARAM_FAMILY.sub("", text)
+    text = _RE_MARGIN_FAMILY.sub("", text)
     return text
 
 

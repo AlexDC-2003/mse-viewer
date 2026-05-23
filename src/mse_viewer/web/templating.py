@@ -7,7 +7,10 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 
-from mse_viewer.parser.reminder_template import evaluate_reminder_template
+from mse_viewer.parser.reminder_template import (
+    evaluate_inline_templates,
+    evaluate_reminder_template,
+)
 from mse_viewer.parser.tags import render_casting_cost, render_match_for_display
 
 
@@ -15,8 +18,13 @@ _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 
 # After HTML-escaping the input, re-enable a small whitelist of tags that the
-# parser preserves for display (italic + bold).  Everything else stays escaped.
-_ALLOWED_TAG = re.compile(r"&lt;(/?)(i|em|b)&gt;", re.IGNORECASE)
+# parser preserves for display (italics only — Phase 1.6 prompt 4 bug 6).
+#
+# We deliberately do NOT re-enable ``<b>`` here because canonicalized rule
+# text never emits a real ``<b>`` tag, but rule text routinely contains
+# stray ``<B>`` substrings (e.g. ``<1B>`` from malformed mana markup) that
+# would otherwise be promoted into actual bold-open tags by the regex.
+_ALLOWED_TAG = re.compile(r"&lt;(/?)(i|em)&gt;", re.IGNORECASE)
 
 
 def render_text(value: str | None) -> Markup:
@@ -48,7 +56,7 @@ def render_text_snippet(value: str | None, length: int = 120) -> Markup:
     cut = len(value) > length
     raw = value[:length] + ("…" if cut else "")
     rendered = str(render_text(raw))
-    for tag in ("i", "b"):
+    for tag in ("i",):
         opens = rendered.count(f"<{tag}>")
         closes = rendered.count(f"</{tag}>")
         if opens > closes:
@@ -81,6 +89,7 @@ def _split_rule_lines(value: str) -> str:
 def render_rule_text(
     value: str | None,
     keyword_reminders=None,
+    card_facts=None,
 ) -> Markup:
     """Render rule_text for the detail page.
 
@@ -105,6 +114,11 @@ def render_rule_text(
     if not value:
         return Markup("")
     text = _split_rule_lines(value)
+    # Evaluate inline ``{if … then … else …}`` templates against the
+    # invoking card's facts so e.g. ``{if has_pt() then "creature"}`` shows
+    # up as ``creature`` on a P/T row. Bare ``{B}`` mana symbols are left
+    # alone (no ``{paramN}`` substitution at this layer).
+    text = evaluate_inline_templates(text, card_facts=card_facts)
     if keyword_reminders:
         resolver = (
             keyword_reminders if callable(keyword_reminders)
@@ -118,10 +132,92 @@ def render_rule_text(
 _RE_INLINE_ITALIC = re.compile(r"</?i>", re.IGNORECASE)
 
 
+_SENTENCE_WORDS = frozenset(
+    {
+        "this", "that", "these", "those",
+        "when", "whenever", "if", "until", "as", "while",
+        "you", "your", "yours",
+        "it", "its", "they", "their", "theirs",
+        "the", "a", "an", "of", "to", "from", "in", "on", "at", "by", "for",
+        "with", "into", "onto", "without",
+        "each", "all", "any", "no", "every",
+        "may", "must", "can", "could", "should", "would", "will",
+        "is", "are", "was", "were", "be", "been", "being",
+        "and", "or", "but", "than", "then", "also",
+        "draw", "gain", "deal", "deals", "dealt", "lose", "loses", "lost",
+        "create", "creates", "created", "make", "makes",
+        "enter", "enters", "entered", "leave", "leaves",
+        "attack", "attacks", "attacking", "block", "blocks", "blocking",
+        "cast", "casts", "casting", "play", "plays", "playing",
+    }
+)
+
+# A keyword "head word" — alpha + optional hyphen / apostrophe. Phase 1.6
+# prompt 5 bug 4: the splitter heuristic decides whether a comma-segment
+# looks like a keyword (vs. a sentence fragment) on the head shape.
+_RE_KW_HEAD_WORD = re.compile(r"^[A-Za-z][A-Za-z'\-]*$")
+# A keyword parameter slot — short numeric / single-letter / token.
+_RE_KW_HEAD_PARAM = re.compile(r"^(?:[0-9]+|[A-Za-z]|\{[^}]+\})$")
+
+
+def _is_keyword_shaped(head: str) -> bool:
+    """Heuristic: does ``head`` look like a keyword name?
+
+    Accept 1–3-word phrases where every word is alpha (with optional hyphen
+    / apostrophe) or a short parameter slot (digits, single letter, brace
+    expression). Reject if any word is a common sentence-internal English
+    word — those are very likely sentence fragments rather than keywords.
+    """
+    words = (head or "").split()
+    if not words or len(words) > 3:
+        return False
+    for w in words:
+        if w.lower() in _SENTENCE_WORDS:
+            return False
+    if not _RE_KW_HEAD_WORD.match(words[0]):
+        return False
+    for w in words[1:]:
+        if not (_RE_KW_HEAD_WORD.match(w) or _RE_KW_HEAD_PARAM.match(w)):
+            return False
+    return True
+
+
+def _classify_kw_segment(stripped: str, head: str, resolver) -> str:
+    """Return ``"strong"`` (resolves or carries an inline reminder),
+    ``"shaped"`` (looks like a bare keyword name), or ``"reject"``."""
+    if not head:
+        return "reject"
+    if resolver(head) is not None:
+        return "strong"
+    # Tolerate trailing sentence punctuation (``).``) on the reminder shape.
+    tail_check = stripped.rstrip(".,;:").rstrip()
+    if tail_check.endswith(")") and len(head.split()) <= 4:
+        return "strong"
+    if _is_keyword_shaped(head):
+        return "shaped"
+    return "reject"
+
+
 def _split_keyword_comma_lines(text: str, resolver) -> str:
-    """For each line: if every top-level comma-segment resolves to a known
-    keyword (allowing a trailing parenthesised reminder body on at most one
-    of them), split into one segment per line.  Otherwise leave the line.
+    """For each line: if every top-level comma-segment looks like a keyword
+    invocation, split into one segment per line. Otherwise leave the line.
+
+    A segment is treated as a keyword if it ``"strong"``-classifies (resolves
+    against the keyword DB OR carries an inline ``(reminder)`` body) or
+    ``"shaped"``-classifies (1–3 words, alphabetic, no English sentence
+    words — looks like a bare keyword name even when the card never linked
+    it via ``keyword_ids``).
+
+    The line is split iff every segment classifies non-``reject`` AND at
+    least one segment is ``"strong"``. The "at least one strong" gate is what
+    keeps a free-text sentence like ``Apples, oranges, pears`` from being
+    over-split into three lines.
+
+    Phase 1.6 prompt 5 bug 4: previous attempts required resolver hits or
+    inline reminders on every segment; the user's actual rule_text had
+    bare ``Haste, vigilance, reach`` heads that the card hadn't linked,
+    so the splitter bailed even though the last segment was clearly a
+    keyword with its own reminder.
     """
     out: list[str] = []
     for line in text.split("\n"):
@@ -132,13 +228,12 @@ def _split_keyword_comma_lines(text: str, resolver) -> str:
         if len(segments) < 2:
             out.append(line)
             continue
-        all_keywords = True
+        kinds: list[str] = []
         for seg in segments:
-            head = _strip_trailing_parens(seg).strip()
-            if not head or resolver(head) is None:
-                all_keywords = False
-                break
-        if all_keywords:
+            stripped = seg.strip()
+            head = _strip_trailing_parens(stripped).strip()
+            kinds.append(_classify_kw_segment(stripped, head, resolver))
+        if "reject" not in kinds and "strong" in kinds:
             out.extend(s.strip() for s in segments if s.strip())
         else:
             out.append(line)
@@ -164,7 +259,10 @@ def _tokenize_top_level_commas(s: str) -> list[str]:
 
 def _strip_trailing_parens(s: str) -> str:
     """Drop a trailing balanced parenthesised body so ``Splash 2 (...)``
-    becomes ``Splash 2`` for keyword lookup."""
+    becomes ``Splash 2`` for keyword lookup. Tolerates trailing punctuation
+    (``).``) — the comma-splitter needs to handle sentences that wrap a
+    keyword reminder before a sentence-ending dot."""
+    s = s.rstrip().rstrip(".,;:")
     s = s.rstrip()
     if not s.endswith(")"):
         return s
@@ -207,7 +305,11 @@ def _process_keyword_lines(text: str, resolver) -> str:
             out.append(line)
             continue
         rendered = _capitalize_first(line)
-        if "(" not in bare:
+        # Append the reminder ONLY when we have a non-empty body and the
+        # line doesn't already carry one. An empty-string reminder marks a
+        # keyword that's known but has no definition yet (Phase 1.6 prompt 4
+        # bug 1) — capitalize the head, but don't render ``<i>()</i>``.
+        if reminder and "(" not in bare:
             # Strip pre-existing italic tags from the reminder body to avoid
             # nested ``<i>`` (browsers can render nested italics as upright).
             body = _RE_INLINE_ITALIC.sub("", reminder)

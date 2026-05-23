@@ -22,22 +22,37 @@ router = APIRouter()
 _RE_KW_ATOM_PARAM = re.compile(r"<atom-param>([^<]*)</atom-param>", re.IGNORECASE)
 
 
-def _build_keyword_reminder_resolver(keyword_rows) -> Callable[[str], str | None]:
+def _card_facts(row) -> dict[str, object]:
+    """Snapshot the row fields that reminder-template predicates may consult.
+
+    Used for ``has_pt()`` and the ``is_artifact(card.super_type)`` family.
+    Extend with more fields as new predicates land.
+    """
+    return {
+        "power": getattr(row, "power", None),
+        "toughness": getattr(row, "toughness", None),
+        "super_type": getattr(row, "card_type", None),
+        "sub_type": getattr(row, "card_subtype", None),
+    }
+
+
+def _build_keyword_reminder_resolver(
+    keyword_rows,
+    card_facts: dict[str, object] | None = None,
+) -> Callable[[str], str | None]:
     """Build an in-memory resolver: given a card-side ref string (e.g.
     ``Trample`` / ``Splash 2`` / ``Evolve: Foo``), return the matching
-    keyword's reminder body, evaluated against any captured invocation
-    parameters.  Returns ``None`` when no keyword matches.
+    keyword's reminder body (evaluated against captured params), or an
+    empty string when the keyword exists but has no reminder body, or
+    ``None`` when no keyword matches at all.
 
-    Two passes:
-      1. Exact (case-insensitive) match against ``keyword.name`` — no params
-         to capture.
-      2. Structural match: each ``<atom-param>X</atom-param>`` slot becomes
-         ``(.+?)`` so parameterised keywords resolve from concrete
-         invocations.  The captured groups are paired with the param names
-         from the match string (``n``, ``cost``, ``name`` …) and fed into
-         :func:`evaluate_reminder_template` so a card that reads
-         ``Toxic 2`` gets ``2 poison counters.`` instead of leaking the
-         raw ``{ if n.value=="1" then "counter." else "counters." }``.
+    The empty-string return matters for the comma-splitter in
+    ``templating.py``: a row like ``Haste, vigilance, reach, …`` should
+    still split into separate keyword lines even when Haste / Vigilance
+    are reminderless stubs (Phase 1.6 prompt 4 bug 1).
+
+    ``card_facts`` is forwarded to the template evaluator so function-call
+    predicates like ``has_pt()`` resolve against the invoking card's row.
 
     A tolerance retry strips a single ``:`` from the candidate before
     rematching — handles cases where MSE renders ``Evolve: <name>`` but the
@@ -47,8 +62,7 @@ def _build_keyword_reminder_resolver(keyword_rows) -> Callable[[str], str | None
     exact: dict[str, str] = {}
     patterns: list[tuple[re.Pattern[str], str, list[str]]] = []
     for k in keyword_rows:
-        if not k.reminder:
-            continue
+        reminder = k.reminder or ""
         param_names = _RE_KW_ATOM_PARAM.findall(k.name)
         if param_names:
             parts = _RE_KW_ATOM_PARAM.split(k.name)
@@ -59,18 +73,18 @@ def _build_keyword_reminder_resolver(keyword_rows) -> Callable[[str], str | None
             pat_body = "(.+?)".join(re.escape(p) for p in literals)
             patterns.append(
                 (re.compile(rf"^\s*{pat_body}\s*$", re.IGNORECASE | re.DOTALL),
-                 k.reminder,
+                 reminder,
                  param_names)
             )
         else:
-            exact[k.name.lower()] = k.reminder
+            exact[k.name.lower()] = reminder
 
     def _try(ref: str) -> str | None:
         if not ref:
             return None
         hit = exact.get(ref.lower())
         if hit is not None:
-            return evaluate_reminder_template(hit)
+            return evaluate_reminder_template(hit, card_facts=card_facts) if hit else ""
         for pat, rem, names in patterns:
             m = pat.match(ref)
             if m:
@@ -81,7 +95,7 @@ def _build_keyword_reminder_resolver(keyword_rows) -> Callable[[str], str | None
                 params = {nm: val for nm, val in zip(names, groups)}
                 for i, val in enumerate(groups, start=1):
                     params.setdefault(f"param{i}", val)
-                return evaluate_reminder_template(rem, params)
+                return evaluate_reminder_template(rem, params, card_facts=card_facts) if rem else ""
         return None
 
     def resolve(ref: str) -> str | None:
@@ -171,7 +185,8 @@ def cards_detail(request: Request, card_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404)
     keyword_repo = KeywordRepository(db)
     keyword_rows = [k for k in (keyword_repo.get(i) for i in (card.keyword_ids or [])) if k]
-    keyword_reminders = _build_keyword_reminder_resolver(keyword_rows)
+    facts = _card_facts(card)
+    keyword_reminders = _build_keyword_reminder_resolver(keyword_rows, card_facts=facts)
     related = _linkify_related(
         card.related_cards,
         current_kind="card",
@@ -187,6 +202,7 @@ def cards_detail(request: Request, card_id: int, db: Session = Depends(get_db)):
             "card": card,
             "keywords": keyword_rows,
             "keyword_reminders": keyword_reminders,
+            "card_facts": facts,
             "related": related,
         },
     )
@@ -215,7 +231,8 @@ def tokens_detail(request: Request, token_id: int, db: Session = Depends(get_db)
         raise HTTPException(404)
     keyword_repo = KeywordRepository(db)
     keyword_rows = [k for k in (keyword_repo.get(i) for i in (row.keyword_ids or [])) if k]
-    keyword_reminders = _build_keyword_reminder_resolver(keyword_rows)
+    facts = _card_facts(row)
+    keyword_reminders = _build_keyword_reminder_resolver(keyword_rows, card_facts=facts)
     related = _linkify_related(
         row.related_cards,
         current_kind="token",
@@ -231,6 +248,7 @@ def tokens_detail(request: Request, token_id: int, db: Session = Depends(get_db)
             "token": row,
             "keywords": keyword_rows,
             "keyword_reminders": keyword_reminders,
+            "card_facts": facts,
             "related": related,
         },
     )
@@ -240,12 +258,65 @@ def tokens_detail(request: Request, token_id: int, db: Session = Depends(get_db)
 
 
 @router.get("/keywords")
-def keywords_list(request: Request, db: Session = Depends(get_db)):
-    rows = KeywordRepository(db).list()
+def keywords_list(
+    request: Request,
+    q: str | None = None,
+    db: Session = Depends(get_db),
+):
+    repo = KeywordRepository(db)
+    rows = repo.search(q) if q else repo.list()
     return templates.TemplateResponse(
         request,
         "keywords/list.html",
+        {"request": request, "keywords": rows, "q": q or ""},
+    )
+
+
+@router.get("/keywords/stubs")
+def keywords_stubs(request: Request, db: Session = Depends(get_db)):
+    """Dashboard for keyword stubs needing definition."""
+    rows = KeywordRepository(db).list_stubs()
+    return templates.TemplateResponse(
+        request,
+        "keywords/stubs.html",
         {"request": request, "keywords": rows},
+    )
+
+
+@router.get("/related/missing")
+def related_missing(request: Request, db: Session = Depends(get_db)):
+    """List every distinct ``related_cards`` entry across Cards/Tokens that
+    has no matching identity in either DB. Surfaces broken / unfulfilled
+    cross-links the user might still want to author."""
+    cards_repo = CardRepository(db)
+    tokens_repo = TokenRepository(db)
+    card_identities = cards_repo.existing_identities()
+    token_identities = tokens_repo.existing_identities()
+    known: set[str] = set()
+    for n in card_identities | token_identities:
+        if n:
+            known.add(n.lower())
+    missing: dict[str, list[dict]] = {}
+    for row in cards_repo.list():
+        for ref in row.related_cards or []:
+            if ref and ref.strip().lower() not in known:
+                missing.setdefault(ref, []).append(
+                    {"name": row.name, "kind": "card", "id": row.id}
+                )
+    for row in tokens_repo.list():
+        for ref in row.related_cards or []:
+            if ref and ref.strip().lower() not in known:
+                missing.setdefault(ref, []).append(
+                    {"name": row.name, "kind": "token", "id": row.id}
+                )
+    rows = sorted(
+        ({"target": k, "referenced_by": v} for k, v in missing.items()),
+        key=lambda r: r["target"].lower(),
+    )
+    return templates.TemplateResponse(
+        request,
+        "related_missing.html",
+        {"request": request, "rows": rows},
     )
 
 

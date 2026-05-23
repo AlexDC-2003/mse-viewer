@@ -21,6 +21,11 @@ def parse_set_text(text: str) -> ParsedSet:
     lines = lex(text)
     root = build_tree(lines)
     header = parse_header(root)
-    keywords = parse_keywords(root)
+    keywords, rejected_keywords = parse_keywords(root)
     cards = parse_cards(root)
-    return ParsedSet(header=header, keywords=keywords, cards=cards)
+    return ParsedSet(
+        header=header,
+        keywords=keywords,
+        cards=cards,
+        rejected_keywords=rejected_keywords,
+    )

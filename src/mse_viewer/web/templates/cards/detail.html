@@ -13,13 +13,20 @@
         <dt>Display name</dt><dd>{{ card.display_name }}</dd>
         <dt>Cost</dt><dd>{{ card.casting_cost | render_cost or "—" }}</dd>
         <dt>Colors</dt><dd>{{ card.colors | render_colors }}</dd>
+        {% if card.power or card.toughness %}
         <dt>P/T</dt><dd>{{ card.power or "—" }} / {{ card.toughness or "—" }}</dd>
+        {% endif %}
+        {% if card.starting_loyalty is not none %}
+        <dt>Starting loyalty</dt><dd>{{ card.starting_loyalty }}</dd>
+        {% endif %}
         <dt>Rarity</dt><dd>{{ card.rarity }}</dd>
         <dt>Power level</dt><dd>{{ card.power_level if card.power_level is not none else "—" }}</dd>
-        <dt>Design type</dt><dd>{{ card.design_type }}</dd>
-        <dt>Sets</dt><dd>{{ card.sets|join(", ") or "—" }}</dd>
-        <dt>Alt arts</dt><dd>{{ card.alt_arts|join(", ") or "—" }}</dd>
-        <dt>Alias</dt><dd>{{ card.alias or "—" }}</dd>
+        <dt class="additional-info">Design type</dt><dd class="additional-info">{{ card.design_type }}</dd>
+        <dt class="additional-info">Sets</dt><dd class="additional-info">{{ card.sets|join(", ") or "—" }}</dd>
+        <dt class="additional-info">Alt arts</dt><dd class="additional-info">{{ card.alt_arts|join(", ") or "—" }}</dd>
+        {% if card.alias %}
+        <dt class="additional-info">Alias</dt><dd class="additional-info">{{ card.alias }}</dd>
+        {% endif %}
         <dt>Related cards</dt>
         <dd>
             {% if related %}
@@ -29,7 +36,7 @@
     </dl>
     <h4>Rule text</h4>
     {% if card.rule_text %}
-        <div class="rule-text">{{ card.rule_text | render_rule_text(keyword_reminders) }}</div>
+        <div class="rule-text">{{ card.rule_text | render_rule_text(keyword_reminders, card_facts) }}</div>
     {% else %}
         <p>—</p>
     {% endif %}
@@ -57,4 +64,5 @@
     {% endif %}
 </article>
 <a href="/cards" role="button" class="secondary">Back</a>
+<a href="/cards/{{ card.id }}/edit" role="button">Edit</a>
 {% endblock %}

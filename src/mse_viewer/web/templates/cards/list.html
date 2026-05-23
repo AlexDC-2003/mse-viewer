@@ -3,8 +3,9 @@
 {% block content %}
 <h1>Cards <small>({{ cards|length }})</small></h1>
 <form action="/cards" method="get">
-    <input name="q" value="{{ q }}" placeholder="Search by name…">
+    <input name="q" value="{{ q }}" placeholder="Search by name, rule text, or flavor…">
     <button type="submit">Search</button>
+    <a href="/cards/new" role="button" class="secondary">New card</a>
 </form>
 {% if cards %}
 <table>
@@ -17,7 +18,7 @@
             <th>P/T</th>
             <th>Rarity</th>
             <th>PWL</th>
-            <th>Sets</th>
+            <th class="additional-info">Sets</th>
             <th>Printed</th>
             <th>Rule text</th>
         </tr>
@@ -34,7 +35,7 @@
             </td>
             <td>{{ c.rarity }}</td>
             <td>{{ c.power_level if c.power_level is not none else "" }}</td>
-            <td>{{ c.sets|join(", ") }}</td>
+            <td class="additional-info">{{ c.sets|join(", ") }}</td>
             <td>{{ "yes" if c.printed else "" }}</td>
             <td><small>{{ c.rule_text | render_rule_text_snippet }}</small></td>
         </tr>

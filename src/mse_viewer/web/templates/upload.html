@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Upload — mse-viewer{% endblock %}
 {% block content %}
-<h1>Upload a set file</h1>
+<h1>{% if mode == "deck" %}Upload a deck file{% else %}Upload a set file{% endif %}</h1>
 
 {% if error %}
 <article class="warn">
@@ -9,7 +9,91 @@
 </article>
 {% endif %}
 
+<nav>
+    <a href="/upload?mode=set" {% if mode != "deck" %}role="button"{% else %}role="button" class="secondary"{% endif %}>Set</a>
+    <a href="/upload?mode=deck" {% if mode == "deck" %}role="button"{% else %}role="button" class="secondary"{% endif %}>Deck</a>
+</nav>
+
 <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="mode" value="{{ mode }}">
+    {% if mode == "deck" %}
+    <fieldset>
+        <legend>Deck metadata</legend>
+        <label>Deck name
+            <input name="deck_name" required placeholder="e.g. Mono-Green Stompy">
+        </label>
+        <div class="grid">
+            <label>Format
+                <select name="deck_format" id="deck-format-select">
+                    {% for f in ["1v1", "ffa", "commander", "tester", "draft", "limited", "casual"] %}
+                        <option value="{{ f }}">{{ f }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Size <input type="number" name="deck_size" id="deck-size-input" value="60"></label>
+        </div>
+        <div class="grid">
+            <label>Theme <input name="deck_theme"></label>
+            <label>Archetype <input name="deck_archetype"></label>
+        </div>
+        <label>Owners (csv) <input name="deck_owners"></label>
+        <label>Colors (csv) <input name="deck_colors"></label>
+    </fieldset>
+    <fieldset id="commander-fields" style="display: none;">
+        <legend>Commander / tester fields</legend>
+        <label>Commander
+            <select name="deck_commander_card_id">
+                <option value="">— none —</option>
+                {% for c in cards %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Package
+            <select name="deck_package" id="deck-package-select">
+                <option value="">— none —</option>
+                <option value="Core">Core</option>
+                <option value="Expansion">Expansion</option>
+                <option value="Supplement">Supplement</option>
+            </select>
+        </label>
+        <label>Related deck IDs (csv)
+            <input name="deck_related">
+            <small>Meaningful when the package is Expansion or Supplement (an extension of another deck).</small>
+        </label>
+    </fieldset>
+    <script>
+        // Phase 1.6 prompt 5:
+        //   * commander/tester fields appear only when the format calls for them;
+        //   * choosing ``commander`` auto-bumps the size default from 60 → 100
+        //     (the user can still override).
+        (function () {
+            var fmt = document.getElementById("deck-format-select");
+            var size = document.getElementById("deck-size-input");
+            var commander = document.getElementById("commander-fields");
+            var lastFormat = fmt && fmt.value;
+            function defaultSizeFor(value) {
+                if (value === "commander") return 100;
+                if (value === "tester") return 100;
+                return 60;
+            }
+            function syncFormat() {
+                var v = fmt && fmt.value;
+                var show = v === "commander" || v === "tester";
+                if (commander) commander.style.display = show ? "" : "none";
+                if (size) {
+                    var expected = String(defaultSizeFor(lastFormat));
+                    // Only auto-update when the input still holds the previous
+                    // default — don't squash a value the user actually typed.
+                    if (size.value === expected) {
+                        size.value = defaultSizeFor(v);
+                    }
+                }
+                lastFormat = v;
+            }
+            if (fmt) fmt.addEventListener("change", syncFormat);
+            syncFormat();
+        })();
+    </script>
+    {% else %}
     <fieldset>
         <legend>Set metadata</legend>
         <label>Set name
@@ -25,6 +109,7 @@
             </div>
         </fieldset>
     </fieldset>
+    {% endif %}
     <fieldset>
         <legend>Source</legend>
         <div class="field">
@@ -32,10 +117,13 @@
             <input type="file" name="file" accept=".txt,.set,.mse-set,*" id="set-file">
             <small>Click the file picker only — clicking elsewhere won't reset your selection.</small>
         </div>
-        <label>…or paste set text
-            <textarea name="pasted_text" rows="14" placeholder="Paste the contents of an MSE 'set' file here."></textarea>
+        <label>…or paste {% if mode == "deck" %}deck{% else %}set{% endif %} text
+            <textarea name="pasted_text" rows="14" placeholder="Paste the contents of the file here."></textarea>
         </label>
+        {% if mode == "deck" %}
+        <small>Quantities are encoded as repeated <code>card:</code> blocks with the same name (a 4-of Zap = four blocks named Zap). The deck parser collapses repeats into <code>quantity</code>.</small>
+        {% endif %}
     </fieldset>
-    <button type="submit">Parse and review</button>
+    <button type="submit">{% if mode == "deck" %}Parse and review deck{% else %}Parse and review{% endif %}</button>
 </form>
 {% endblock %}

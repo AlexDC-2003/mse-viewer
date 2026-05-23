@@ -1,0 +1,24 @@
+{# Single log entry row — included by list.html and returned by HTMX
+   transitions so the row can swap in place without a full reload. #}
+<tr id="entry-{{ e.id }}">
+    <td><small>{{ e.created_at.strftime("%Y-%m-%d %H:%M") }}</small></td>
+    <td>{{ e.kind.value }}</td>
+    <td>{{ e.state.value }}</td>
+    <td>
+        <strong>{{ e.title }}</strong>
+        {% if e.body %}<br><small>{{ e.body }}</small>{% endif %}
+    </td>
+    <td>
+        {% if e.state.value == "open" %}
+            <button type="button"
+                    hx-post="/log/{{ e.id }}/resolve"
+                    hx-target="#entry-{{ e.id }}"
+                    hx-swap="outerHTML">Resolve</button>
+        {% elif e.state.value == "resolved" %}
+            <button type="button" class="secondary"
+                    hx-post="/log/{{ e.id }}/reopen"
+                    hx-target="#entry-{{ e.id }}"
+                    hx-swap="outerHTML">Reopen</button>
+        {% endif %}
+    </td>
+</tr>
