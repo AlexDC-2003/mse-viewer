@@ -25,12 +25,14 @@ _RE_KW_ATOM_PARAM = re.compile(r"<atom-param>([^<]*)</atom-param>", re.IGNORECAS
 def _card_facts(row) -> dict[str, object]:
     """Snapshot the row fields that reminder-template predicates may consult.
 
-    Currently used for ``has_pt()`` (true when the row has both power and
-    toughness). Extend with more fields as new predicates land.
+    Used for ``has_pt()`` and the ``is_artifact(card.super_type)`` family.
+    Extend with more fields as new predicates land.
     """
     return {
         "power": getattr(row, "power", None),
         "toughness": getattr(row, "toughness", None),
+        "super_type": getattr(row, "card_type", None),
+        "sub_type": getattr(row, "card_subtype", None),
     }
 
 
@@ -40,19 +42,14 @@ def _build_keyword_reminder_resolver(
 ) -> Callable[[str], str | None]:
     """Build an in-memory resolver: given a card-side ref string (e.g.
     ``Trample`` / ``Splash 2`` / ``Evolve: Foo``), return the matching
-    keyword's reminder body, evaluated against any captured invocation
-    parameters.  Returns ``None`` when no keyword matches.
+    keyword's reminder body (evaluated against captured params), or an
+    empty string when the keyword exists but has no reminder body, or
+    ``None`` when no keyword matches at all.
 
-    Two passes:
-      1. Exact (case-insensitive) match against ``keyword.name`` — no params
-         to capture.
-      2. Structural match: each ``<atom-param>X</atom-param>`` slot becomes
-         ``(.+?)`` so parameterised keywords resolve from concrete
-         invocations.  The captured groups are paired with the param names
-         from the match string (``n``, ``cost``, ``name`` …) and fed into
-         :func:`evaluate_reminder_template` so a card that reads
-         ``Toxic 2`` gets ``2 poison counters.`` instead of leaking the
-         raw ``{ if n.value=="1" then "counter." else "counters." }``.
+    The empty-string return matters for the comma-splitter in
+    ``templating.py``: a row like ``Haste, vigilance, reach, …`` should
+    still split into separate keyword lines even when Haste / Vigilance
+    are reminderless stubs (Phase 1.6 prompt 4 bug 1).
 
     ``card_facts`` is forwarded to the template evaluator so function-call
     predicates like ``has_pt()`` resolve against the invoking card's row.
@@ -65,8 +62,7 @@ def _build_keyword_reminder_resolver(
     exact: dict[str, str] = {}
     patterns: list[tuple[re.Pattern[str], str, list[str]]] = []
     for k in keyword_rows:
-        if not k.reminder:
-            continue
+        reminder = k.reminder or ""
         param_names = _RE_KW_ATOM_PARAM.findall(k.name)
         if param_names:
             parts = _RE_KW_ATOM_PARAM.split(k.name)
@@ -77,18 +73,18 @@ def _build_keyword_reminder_resolver(
             pat_body = "(.+?)".join(re.escape(p) for p in literals)
             patterns.append(
                 (re.compile(rf"^\s*{pat_body}\s*$", re.IGNORECASE | re.DOTALL),
-                 k.reminder,
+                 reminder,
                  param_names)
             )
         else:
-            exact[k.name.lower()] = k.reminder
+            exact[k.name.lower()] = reminder
 
     def _try(ref: str) -> str | None:
         if not ref:
             return None
         hit = exact.get(ref.lower())
         if hit is not None:
-            return evaluate_reminder_template(hit, card_facts=card_facts)
+            return evaluate_reminder_template(hit, card_facts=card_facts) if hit else ""
         for pat, rem, names in patterns:
             m = pat.match(ref)
             if m:
@@ -99,7 +95,7 @@ def _build_keyword_reminder_resolver(
                 params = {nm: val for nm, val in zip(names, groups)}
                 for i, val in enumerate(groups, start=1):
                     params.setdefault(f"param{i}", val)
-                return evaluate_reminder_template(rem, params, card_facts=card_facts)
+                return evaluate_reminder_template(rem, params, card_facts=card_facts) if rem else ""
         return None
 
     def resolve(ref: str) -> str | None:
@@ -189,9 +185,8 @@ def cards_detail(request: Request, card_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404)
     keyword_repo = KeywordRepository(db)
     keyword_rows = [k for k in (keyword_repo.get(i) for i in (card.keyword_ids or [])) if k]
-    keyword_reminders = _build_keyword_reminder_resolver(
-        keyword_rows, card_facts=_card_facts(card)
-    )
+    facts = _card_facts(card)
+    keyword_reminders = _build_keyword_reminder_resolver(keyword_rows, card_facts=facts)
     related = _linkify_related(
         card.related_cards,
         current_kind="card",
@@ -207,6 +202,7 @@ def cards_detail(request: Request, card_id: int, db: Session = Depends(get_db)):
             "card": card,
             "keywords": keyword_rows,
             "keyword_reminders": keyword_reminders,
+            "card_facts": facts,
             "related": related,
         },
     )
@@ -235,9 +231,8 @@ def tokens_detail(request: Request, token_id: int, db: Session = Depends(get_db)
         raise HTTPException(404)
     keyword_repo = KeywordRepository(db)
     keyword_rows = [k for k in (keyword_repo.get(i) for i in (row.keyword_ids or [])) if k]
-    keyword_reminders = _build_keyword_reminder_resolver(
-        keyword_rows, card_facts=_card_facts(row)
-    )
+    facts = _card_facts(row)
+    keyword_reminders = _build_keyword_reminder_resolver(keyword_rows, card_facts=facts)
     related = _linkify_related(
         row.related_cards,
         current_kind="token",
@@ -253,6 +248,7 @@ def tokens_detail(request: Request, token_id: int, db: Session = Depends(get_db)
             "token": row,
             "keywords": keyword_rows,
             "keyword_reminders": keyword_reminders,
+            "card_facts": facts,
             "related": related,
         },
     )

@@ -32,9 +32,8 @@ def review_current(
     preview = session.current()
     cards_repo = CardRepository(db)
     tokens_repo = TokenRepository(db)
-    distinct_design_types = sorted(
-        set(cards_repo.distinct_design_types()) | set(tokens_repo.distinct_design_types())
-    )
+    # design_type lives on Card only as of 0005; tokens don't contribute.
+    distinct_design_types = cards_repo.distinct_design_types()
     distinct_rarities = cards_repo.distinct_rarities()
     distinct_colors = sorted(
         set(cards_repo.distinct_colors()) | set(tokens_repo.distinct_colors())

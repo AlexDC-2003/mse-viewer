@@ -76,7 +76,7 @@ def _row_snapshot(row) -> dict:
         "toughness": row.toughness,
         "flavor_text": row.flavor_text,
         "rule_text": row.rule_text,
-        "design_type": row.design_type,
+        "design_type": getattr(row, "design_type", None),
         "rarity": getattr(row, "rarity", None),
         "alias": row.alias,
         "starting_loyalty": getattr(row, "starting_loyalty", None),
@@ -247,19 +247,30 @@ def _finalize_deck(session: IngestSession, repos: IngestRepos) -> None:
     deck = repos.decks.create(**plan.meta)
     missing: list[str] = []
     for name, qty in plan.quantities.items():
+        # Phase 1.6 prompt 5 bug/change 3: tokens are first-class deck
+        # members. Prefer a Card with this identity, fall back to a Token,
+        # log if neither resolves.
         card = repos.cards.find_by_identity(name)
         if card is None:
             ci = repos.cards.find_by_name_ci(name)
             if ci:
                 card = ci[0]
-        if card is None:
-            missing.append(name)
+        if card is not None:
+            repos.decks.add_card(deck, card.id, quantity=qty)
             continue
-        repos.decks.add_card(deck, card.id, quantity=qty)
+        token = repos.tokens.find_by_identity(name)
+        if token is None:
+            ti = repos.tokens.find_by_name_ci(name)
+            if ti:
+                token = ti[0]
+        if token is not None:
+            repos.decks.add_token(deck, token.id, quantity=qty)
+            continue
+        missing.append(name)
     if missing:
         repos.log.create_action(
-            title=f"Deck {deck.name!r}: {len(missing)} card(s) not linked",
-            body="\n".join(f"{n!r} (no Card row found)" for n in missing),
+            title=f"Deck {deck.name!r}: {len(missing)} member(s) not linked",
+            body="\n".join(f"{n!r} (no Card or Token row found)" for n in missing),
             payload={"deck_id": deck.id, "missing": missing},
         )
     repos.db.commit()

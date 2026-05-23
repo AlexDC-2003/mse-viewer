@@ -24,29 +24,75 @@
         </label>
         <div class="grid">
             <label>Format
-                <select name="deck_format">
-                    {% for f in ["1v1", "ffa", "commander", "draft", "limited", "casual"] %}
+                <select name="deck_format" id="deck-format-select">
+                    {% for f in ["1v1", "ffa", "commander", "tester", "draft", "limited", "casual"] %}
                         <option value="{{ f }}">{{ f }}</option>
                     {% endfor %}
                 </select>
             </label>
-            <label>Size <input type="number" name="deck_size" value="60"></label>
-            <label>Package <input name="deck_package"></label>
+            <label>Size <input type="number" name="deck_size" id="deck-size-input" value="60"></label>
         </div>
         <div class="grid">
             <label>Theme <input name="deck_theme"></label>
             <label>Archetype <input name="deck_archetype"></label>
         </div>
+        <label>Owners (csv) <input name="deck_owners"></label>
+        <label>Colors (csv) <input name="deck_colors"></label>
+    </fieldset>
+    <fieldset id="commander-fields" style="display: none;">
+        <legend>Commander / tester fields</legend>
         <label>Commander
             <select name="deck_commander_card_id">
                 <option value="">— none —</option>
                 {% for c in cards %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
             </select>
         </label>
-        <label>Owners (csv) <input name="deck_owners"></label>
-        <label>Colors (csv) <input name="deck_colors"></label>
-        <label>Related deck IDs (csv) <input name="deck_related"></label>
+        <label>Package
+            <select name="deck_package" id="deck-package-select">
+                <option value="">— none —</option>
+                <option value="Core">Core</option>
+                <option value="Expansion">Expansion</option>
+                <option value="Supplement">Supplement</option>
+            </select>
+        </label>
+        <label>Related deck IDs (csv)
+            <input name="deck_related">
+            <small>Meaningful when the package is Expansion or Supplement (an extension of another deck).</small>
+        </label>
     </fieldset>
+    <script>
+        // Phase 1.6 prompt 5:
+        //   * commander/tester fields appear only when the format calls for them;
+        //   * choosing ``commander`` auto-bumps the size default from 60 → 100
+        //     (the user can still override).
+        (function () {
+            var fmt = document.getElementById("deck-format-select");
+            var size = document.getElementById("deck-size-input");
+            var commander = document.getElementById("commander-fields");
+            var lastFormat = fmt && fmt.value;
+            function defaultSizeFor(value) {
+                if (value === "commander") return 100;
+                if (value === "tester") return 100;
+                return 60;
+            }
+            function syncFormat() {
+                var v = fmt && fmt.value;
+                var show = v === "commander" || v === "tester";
+                if (commander) commander.style.display = show ? "" : "none";
+                if (size) {
+                    var expected = String(defaultSizeFor(lastFormat));
+                    // Only auto-update when the input still holds the previous
+                    // default — don't squash a value the user actually typed.
+                    if (size.value === expected) {
+                        size.value = defaultSizeFor(v);
+                    }
+                }
+                lastFormat = v;
+            }
+            if (fmt) fmt.addEventListener("change", syncFormat);
+            syncFormat();
+        })();
+    </script>
     {% else %}
     <fieldset>
         <legend>Set metadata</legend>

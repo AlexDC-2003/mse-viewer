@@ -28,7 +28,6 @@
             <label>Colors (csv) <input name="colors" value="{{ token.colors|join(', ') if token else '' }}"></label>
             <label>Power <input name="power" value="{{ token.power or '' if token else '' }}"></label>
             <label>Toughness <input name="toughness" value="{{ token.toughness or '' if token else '' }}"></label>
-            <label>Design type <input name="design_type" value="{{ token.design_type if token else 'Normal' }}"></label>
         </div>
         <label><input type="checkbox" name="printed" {% if token and token.printed %}checked{% endif %}> Printed</label>
     </fieldset>

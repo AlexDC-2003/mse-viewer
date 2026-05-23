@@ -17,6 +17,8 @@ class Card(Base, CardCoreMixin):
     starting_loyalty: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Card-only set provenance (Phase 1.6 prompt 3 bug 6).
     sets: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    # Card-only design taxonomy (Phase 1.6 prompt 4 item 2).
+    design_type: Mapped[str] = mapped_column(String(64), nullable=False, default="Normal")
 
     def __repr__(self) -> str:  # pragma: no cover -- debug only
         return f"<Card id={self.id} name={self.name!r}>"

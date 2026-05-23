@@ -35,16 +35,27 @@ class DeckIngestPlan:
     missing: set[str] = field(default_factory=set)
 
 
-def collapse_deck(parsed: ParsedSet, *, existing_card_names: set[str]) -> tuple[ParsedSet, dict[str, int]]:
+def collapse_deck(
+    parsed: ParsedSet,
+    *,
+    existing_card_names: set[str],
+    existing_token_names: set[str] | None = None,
+) -> tuple[ParsedSet, dict[str, int]]:
     """Collapse repeated ``card:`` blocks by name and return (deduped_set,
-    quantities). Only cards *not* already in the Cards DB land in the
-    deduped set's ``cards`` list — those are what the review pipeline will
-    walk. The quantities map covers every unique card name regardless.
+    quantities). Only cards *not* already in the Cards or Tokens DB land in
+    the deduped set's ``cards`` list — those are what the review pipeline
+    will walk. The quantities map covers every unique card name regardless.
+
+    Phase 1.6 prompt 4 item 7: tokens are also matched so a deck that
+    references a token-only card doesn't get sent through review as if it
+    were a brand-new Card row (which would clash with the same-name Token).
     """
     quantities: dict[str, int] = {}
     seen: set[str] = set()
     new_cards: list[ParsedCard] = []
-    existing_ci = {n.lower() for n in existing_card_names if n}
+    existing_ci: set[str] = {n.lower() for n in existing_card_names if n}
+    if existing_token_names:
+        existing_ci |= {n.lower() for n in existing_token_names if n}
     for card in parsed.cards:
         if not card.faces:
             continue

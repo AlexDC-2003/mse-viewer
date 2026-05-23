@@ -337,7 +337,6 @@ async def _save_token(request: Request, db: Session, *, existing: Token | None):
     existing.toughness = _maybe_text(form.get("toughness"))
     existing.flavor_text = _maybe_text(form.get("flavor_text"))
     existing.rule_text = _maybe_text(form.get("rule_text"))
-    existing.design_type = (form.get("design_type") or "Normal").strip() or "Normal"
     existing.notes = _maybe_text(form.get("notes"))
     existing.alias = _maybe_text(form.get("alias"))
     existing.printed = _bool(form.get("printed"))
@@ -425,7 +424,11 @@ async def _save_keyword(request: Request, db: Session, *, existing: Keyword | No
             raise HTTPException(409, f"Keyword {name!r} already exists.")
         existing = Keyword(name=name)
         db.add(existing)
+        old_name = None
+        old_reminder = None
     else:
+        old_name = existing.name
+        old_reminder = existing.reminder
         existing.name = name
     existing.source_keyword_field = _maybe_text(form.get("source_keyword_field"))
     existing.accepted_parameters = _split_csv(form.get("accepted_parameters"))
@@ -433,6 +436,17 @@ async def _save_keyword(request: Request, db: Session, *, existing: Keyword | No
     existing.rules = _maybe_text(form.get("rules"))
     existing.pseudo_keyword = _bool(form.get("pseudo_keyword"))
     existing.is_stub = _bool(form.get("is_stub"))
+    db.flush()
+    # Phase 1.6 prompt 4 item 4: propagate name/reminder change into
+    # rule_text bodies of every Card / Token that links this keyword.
+    if old_name is not None:
+        repo.propagate_change(
+            existing.id,
+            old_name=old_name,
+            new_name=existing.name,
+            old_reminder=old_reminder,
+            new_reminder=existing.reminder,
+        )
     db.commit()
     return RedirectResponse(f"/keywords/{existing.id}", status_code=303)
 
@@ -489,6 +503,7 @@ def _render_deck_form(
     is_new: bool,
 ):
     cards = CardRepository(db).list()
+    tokens = TokenRepository(db).list()
     decks = DeckRepository(db).list()
     return templates.TemplateResponse(
         request,
@@ -497,6 +512,7 @@ def _render_deck_form(
             "request": request,
             "deck": deck,
             "cards": cards,
+            "tokens": tokens,
             "all_decks": decks,
             "action": action,
             "is_new": is_new,
@@ -536,39 +552,70 @@ async def _save_deck(request: Request, db: Session, *, existing: Deck | None):
     return RedirectResponse(f"/decks/{existing.id}", status_code=303)
 
 
-def _parse_deck_card_lines(raw: str) -> list[tuple[int, int]]:
-    """Each non-empty line is ``<qty> <card_id>``. Bad lines are skipped."""
-    out: list[tuple[int, int]] = []
+def _parse_deck_card_lines(raw: str) -> list[tuple[int, str, int]]:
+    """Each non-empty line is ``<qty> <id>`` (card) or ``<qty> t<id>`` (token).
+    Returns ``[(quantity, kind, target_id)]``. Phase 1.6 prompt 5 bug/change 3.
+    """
+    out: list[tuple[int, str, int]] = []
     for line in raw.splitlines():
         parts = line.strip().split()
         if len(parts) != 2:
             continue
         try:
             qty = int(parts[0])
-            cid = int(parts[1])
         except ValueError:
             continue
-        if qty > 0 and cid > 0:
-            out.append((qty, cid))
+        target = parts[1]
+        kind = "card"
+        if target.lower().startswith("t"):
+            kind = "token"
+            target = target[1:]
+        try:
+            tid = int(target)
+        except ValueError:
+            continue
+        if qty > 0 and tid > 0:
+            out.append((qty, kind, tid))
     return out
 
 
-def _replace_deck_cards(db: Session, deck: Deck, pairs: Iterable[tuple[int, int]]) -> None:
-    """Reset ``deck.cards`` to exactly ``pairs``. Existing rows not in the new
-    set are deleted; existing rows that survive get their quantity updated;
-    rows not in the DB are inserted. The unique ``(deck_id, card_id)`` keeps
-    duplicate lines benign."""
-    pairs_dict: dict[int, int] = {}
-    for qty, cid in pairs:
-        pairs_dict[cid] = pairs_dict.get(cid, 0) + qty
+def _replace_deck_cards(
+    db: Session, deck: Deck, triples: Iterable[tuple[int, str, int]]
+) -> None:
+    """Reset ``deck.cards`` to exactly the given (qty, kind, id) triples.
+
+    Existing rows not in the new set are deleted; existing rows that survive
+    get their quantity updated; rows not in the DB are inserted. The partial-
+    unique indexes on ``(deck_id, card_id)`` / ``(deck_id, token_id)`` keep
+    duplicate lines benign.
+    """
+    card_qty: dict[int, int] = {}
+    token_qty: dict[int, int] = {}
+    for qty, kind, tid in triples:
+        bucket = card_qty if kind == "card" else token_qty
+        bucket[tid] = bucket.get(tid, 0) + qty
     seen_card_ids: set[int] = set()
+    seen_token_ids: set[int] = set()
     for dc in list(deck.cards):
-        if dc.card_id not in pairs_dict:
+        if dc.card_id is not None:
+            if dc.card_id not in card_qty:
+                db.delete(dc)
+                continue
+            dc.quantity = card_qty[dc.card_id]
+            seen_card_ids.add(dc.card_id)
+        elif dc.token_id is not None:
+            if dc.token_id not in token_qty:
+                db.delete(dc)
+                continue
+            dc.quantity = token_qty[dc.token_id]
+            seen_token_ids.add(dc.token_id)
+        else:
             db.delete(dc)
-            continue
-        dc.quantity = pairs_dict[dc.card_id]
-        seen_card_ids.add(dc.card_id)
-    for cid, qty in pairs_dict.items():
+    for cid, qty in card_qty.items():
         if cid in seen_card_ids:
             continue
         db.add(DeckCard(deck_id=deck.id, card_id=cid, quantity=qty))
+    for tid, qty in token_qty.items():
+        if tid in seen_token_ids:
+            continue
+        db.add(DeckCard(deck_id=deck.id, token_id=tid, quantity=qty))

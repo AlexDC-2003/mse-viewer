@@ -80,6 +80,19 @@ def build_preview(
         super_type=face.super_type or "",
     )
 
+    # Color + design_type are derived first so the diff snapshot below has
+    # the real incoming values instead of the previous ``(pending)`` / ``[]``
+    # placeholders (Phase 1.6 prompt 4 item 6).
+    colors = derive_colors(face)
+    dt = derive_design_type(face, header, playbook_lookup=playbook_lookup)
+    if dt.needs_user:
+        warnings.add(
+            WarningKind.design_type_unrecognized,
+            f"Design type unrecognized ({dt.reason}).",
+            stylesheet=face.stylesheet or "",
+            styling_data=dict(face.styling_data),
+        )
+
     # Identity collision detection (per-DB).
     pool = existing_token_identities if route == "token" else existing_card_identities
     if proposed_identity in pool:
@@ -88,13 +101,10 @@ def build_preview(
             f"A {route} named {proposed_identity!r} already exists.",
             existing_identity=proposed_identity,
         )
-        # If we can resolve the existing row, compute a per-field diff so the
-        # modal can render side-by-side. ``modifies_printed`` warns on top of
-        # ``identity_conflict`` when the existing row was marked printed —
-        # those edits are the dangerous ones.
         snap = existing_lookup(proposed_identity, route) if existing_lookup else None
         if snap is not None:
-            new_snap = _face_snapshot(face, colors=[], design_type="(pending)")
+            incoming_design_type = dt.value if dt.value is not None else "(pending)"
+            new_snap = _face_snapshot(face, colors=colors, design_type=incoming_design_type)
             diff = _compute_field_diff(snap, new_snap)
             if snap.get("printed"):
                 warnings.add(
@@ -109,19 +119,6 @@ def build_preview(
                 # isn't marked printed.
                 warnings.warnings[-1].payload["diff"] = diff
                 warnings.warnings[-1].payload["existing"] = snap
-
-    # Color derivation (pure).
-    colors = derive_colors(face)
-
-    # Design type — may produce a "needs_user" result, surfaced as a warning.
-    dt = derive_design_type(face, header, playbook_lookup=playbook_lookup)
-    if dt.needs_user:
-        warnings.add(
-            WarningKind.design_type_unrecognized,
-            f"Design type unrecognized ({dt.reason}).",
-            stylesheet=face.stylesheet or "",
-            styling_data=dict(face.styling_data),
-        )
 
     # Planeswalker alias rule: a non-Evolution Planeswalker with a non-empty
     # alias may want a non-Normal design type — surface a modal so the user

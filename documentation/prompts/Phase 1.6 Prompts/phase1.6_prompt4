@@ -1,0 +1,96 @@
+1. You said "Bug 11 — keyword-comma split now accepts inline-reminder segments
+Root cause: _split_keyword_comma_lines required every segment to resolve to a known keyword, so a line like Haste, vigilance, reach, resilient (...) failed because Resilient wasn't catalogued yet.
+
+Fix: in templating.py, a segment now passes the gate if either it resolves OR it ends in (reminder) and the head is ≤ 4 words. The trailing parens are a strong signal of a self-defining inline keyword. Verified inline:
+
+input:  Haste, vigilance, reach, resilient (Effects that say "destroy" don't destroy this creature.)
+output: Haste
+        vigilance
+        reach
+        resilient (Effects that say "destroy" don't destroy this creature.)"
+
+"Rule text
+Evolve: Grizzly Bear (To cast this spell, you must transform a Grizzly Bear.)
+Evocycling (Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)
+Haste, vigilance, reach, resilient (Effects that say “destroy” don’t destroy this creature.)
+Omni-strike (Whenever this creature attacks and deals combat damage, it deals that much damage to each creature the defending player controls.)
+Hunt (Whenever a creature enters the battlefield under an opponent’s control, it fights this creature.)
+Marked damage on Alpha Grizzly can’t be removed."
+
+Whatever you did, didn't fix this problem.
+
+2. Tokens shouldn't have "Design type" either. You can also drop that for token db.
+
+3. Yeah, keyword refs & autocompletion is messed up badly:
+> Wither, resilient - is not separated, doesn't have auto reminder (though this may be as wither is a stub keyword)
+> on cards that already had resilient's reminder, it's properly there (as the text was already written): 
+Rule text
+Evolve: Melon-Pult (To cast this spell, you must transform a Melon-Pult.)
+Evocycling (Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)
+First strike (This creature deals combat damage before creatures without first strike.)
+Vigilance (Attacking doesn’t cause this creature to tap.)
+Resilient (Effects that say “destroy” don’t destroy this creature.)
+Splash 8 (When this deals damage, it deals damage equal to its power to up to eight other creatures.)
+You may cast Reseeded Melon without evolving Melon-Pult by paying {8}{U}{G} instead of its costs.
+> on cards that don't have the reminder by itself, the reminder is not properly written:
+First strike (This creature deals combat damage before creatures without first strike.)
+Vigilance (Attacking doesn’t cause this creature to tap.)
+Resilient (Effects that say "destroy" don't destroy this {if has_pt() then "creature" else if is_artifact(card.super_type) then "artifact" else "permanent"}.)
+Evolve: P.E.K.K.A. (To cast this spell, you must transform a P.E.K.K.A.)
+Evocycling (Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)
+When you evolve P.E.K.K.A. into A.P.S.P.E.K.K.A., you gain protection from everything until your next turn.
+Whenever A.P.S.P.E.K.K.A. destroys another creature, A.P.S.P.E.K.K.A. gets +0/+4 and you gain 4 life.
+Damage dealt by A.P.S.P.E.K.K.A. can’t be prevented.
+
+I think you didn't understand.
+> in the keyword db detail view, I want keyword reminders with the functions unfilled: Effects that say "destroy" don't destroy this {if has_pt() then "creature" else if is_artifact(card.super_type) then "artifact" else "permanent"}.
+> but when i'm looking at card details, I want the functions filled appropriately: 
+Vigilance (Attacking doesn’t cause this creature to tap.)
+Resilient (Effects that say "destroy" don't destroy this creature.)
+
+So now, do:
+4. Updating a keyword propagates to card rule-text (Bug 10). Right now the Keyword Refs panel updates but the inline rule-text body keeps the old name + reminder. Needs a re-canonicalize pass over every Card / Token whose keyword_ids mentions the changed keyword.
+5. Hide / move metadata UI columns (Change 14). Sets, alt arts, design type, alias should hide behind a global "Additional Information" toggle that persists across pages. Empty P/T and Alias rows on the detail page should also hide automatically (parity with how Starting Loyalty hides today).
+6. Diff view incoming side incomplete (Change 15). Today the diff shows (pending) for design_type and [] for colors because _face_snapshot is built before those derive from the modal. Needs the snapshot rebuilt after overrides apply.
+7. Deck ingest design issues (Change 15). Beyond the AttributeError: deck cards inherit the "deck name" as a sets[] entry on the card row (they shouldn't — a deck is a list of refs, not a provenance tag). The duplication-modal storm is also from treating deck-file cards as full-fat ingest entries; tokens look-up is missing. Whole flow should be reconsidered alongside the unified missing-refs model from item 2.
+8. Nested-if / function-predicate parser for reminder templates. The Bug 12 fix is a guard, not an evaluator — a real recursive-descent for if/then/elseif/else plus more function predicates (is_artifact(card.super_type), etc.) is the proper move once we have a corpus to test against.
+
+and fix the bugs.
+
+bug/change 5. Also, in the deck detail view, when you list all the cards and quantity, have a final row named "Total", where you sum up how many cards are actually in that deck
+
+bug/change 6. Also a bug:
+Raw match
+Kicker 1B
+Reminder
+You may pay an additional <1|> as you cast this spell.
+
+see where I put that "|". That's where a "B" character should be, but isn't. You know what happened? All the text after where the "B" should be is bolded.
+
+bug/change 7. Also another bug/correction: in the deck input overview, commander specific input fields appear even when non-commander format is selected
+I wanted "if the deck format is commander or tester, it should also have these attributes:
+    - commander
+    - package - can be Core/Expansion/Supplement, or left empty
+    - related decks -> this should actually be a foreign key to another deck record, but only if Expansion/Supplement were picked in package"
+I wanted those fields to also not appear in the UI unless commander is selected as the deck format
+
+Also, move these to a new todo list:
+------------------------------------
+1. **Advanced search page** (Bug 7). Per-field inputs (name, type, subtype, P/T, cost, color, design_type, printed, etc.) plus a `-term` negation operator on the basic search bar. To live alongside the current bar, not replace it.
+2. **Unify keyword stubs and missing-related-cards into one model** (Change 8). Two surfaces today, should be one workflow.
+3. **Redefine the entire Design Type field** (Bug 9). The stylesheet table above is the input; Phase 2 should re-do the taxonomy in one pass instead of accumulating short-circuits.
+9. **IngestSession persistence** (carried over from prompt 2). In-process memory only.
+10. **Multi-face cross-link FK** (carried over from prompt 2). Name-based for now.
+
+5. Bug. Despite an existent card:
+First strike (This creature deals combat damage before creatures without first strike.)
+Vigilance (Attacking doesn’t cause this creature to tap.)
+Resilient (Effects that say "destroy" don't destroy this {if has_pt() then "creature" else if is_artifact(card.super_type) then "artifact" else "permanent"}.)
+Evolve: P.E.K.K.A. (To cast this spell, you must transform a P.E.K.K.A.)
+Evocycling (Discard this card: Search your library for its unevolved form, put it in your hand, then shuffle your library.)
+When you evolve P.E.K.K.A. into A.P.S.P.E.K.K.A., you gain protection from everything until your next turn.
+Whenever A.P.S.P.E.K.K.A. destroys another creature, A.P.S.P.E.K.K.A. gets +0/+4 and you gain 4 life.
+Damage dealt by A.P.S.P.E.K.K.A. can’t be prevented.
+
+existing, this simple query doesn't have good separator logic. - This is also for the query logic.
+But still, keep it as a to do later. I will specify in more detail what I want.

@@ -73,8 +73,11 @@ async def upload_submit(
             return _render_error(request, db, mode, "Deck name is required.", status_code=400)
         repos = IngestRepos(db)
         existing_card_names = repos.cards.existing_identities()
+        existing_token_names = repos.tokens.existing_identities()
         deduped, quantities = collapse_deck(
-            parsed, existing_card_names=existing_card_names
+            parsed,
+            existing_card_names=existing_card_names,
+            existing_token_names=existing_token_names,
         )
         meta = _deck_meta_from_form(
             deck_name=deck_name,
@@ -91,13 +94,16 @@ async def upload_submit(
         plan = DeckIngestPlan(
             meta=meta,
             quantities=quantities,
-            missing=set(quantities) - {n for n in existing_card_names},
+            missing=set(quantities)
+            - {n.lower() for n in existing_card_names | existing_token_names},
         )
-        # Use deck_name as the "set_name" for any per-card sets[] entries
-        # (the deck file's cards are tagged as belonging to this deck).
+        # Phase 1.6 prompt 4 item 7: deck-mode uploads pass an empty
+        # ``set_name`` so the deck name does NOT bleed into the per-card
+        # ``sets[]`` provenance list. ``append_unique`` already drops empty
+        # strings, so the pipeline call becomes a no-op for set provenance.
         session = store.create(
             parsed=deduped,
-            set_name=deck_name.strip(),
+            set_name="",
             pwl_defaults={},
             repos=repos,
             deck_plan=plan,

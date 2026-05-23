@@ -91,6 +91,9 @@ class _BaseCardRepo:
         return list(self.db.execute(stmt).scalars())
 
     def distinct_design_types(self) -> list[str]:
+        # Token model has no ``design_type`` column (Phase 1.6 prompt 4 item 2).
+        if not hasattr(self.model, "design_type"):
+            return []
         stmt = select(self.model.design_type).distinct()
         return sorted({v for v in self.db.execute(stmt).scalars() if v})
 

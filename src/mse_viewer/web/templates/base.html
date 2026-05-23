@@ -21,9 +21,30 @@
                 <li><a href="/decks">Decks</a></li>
                 <li><a href="/log">Log</a></li>
                 <li><a href="/related/missing"><small>Missing</small></a></li>
+                <li class="additional-toggle">
+                    <label><input type="checkbox" id="additional-info-toggle"> Additional info</label>
+                </li>
             </ul>
         </nav>
     </header>
+    <script>
+        // Phase 1.6 prompt 4 item 5: persist the "Additional information"
+        // toggle across pages. The body class hides .additional-info rows /
+        // columns via CSS; localStorage keeps the choice between visits.
+        (function () {
+            var KEY = "mseViewer.showAdditional";
+            var checkbox = document.getElementById("additional-info-toggle");
+            var on = localStorage.getItem(KEY) === "1";
+            document.body.classList.toggle("show-additional", on);
+            if (checkbox) {
+                checkbox.checked = on;
+                checkbox.addEventListener("change", function () {
+                    document.body.classList.toggle("show-additional", checkbox.checked);
+                    localStorage.setItem(KEY, checkbox.checked ? "1" : "0");
+                });
+            }
+        })();
+    </script>
     <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
     <main class="container">
         {% block content %}{% endblock %}

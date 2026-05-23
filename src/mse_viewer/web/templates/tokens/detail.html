@@ -12,10 +12,13 @@
         <dt>Display name</dt><dd>{{ token.display_name }}</dd>
         <dt>Cost</dt><dd>{{ token.casting_cost | render_cost or "—" }}</dd>
         <dt>Colors</dt><dd>{{ token.colors | render_colors }}</dd>
+        {% if token.power or token.toughness %}
         <dt>P/T</dt><dd>{{ token.power or "—" }} / {{ token.toughness or "—" }}</dd>
-        <dt>Design type</dt><dd>{{ token.design_type }}</dd>
-        <dt>Alt arts</dt><dd>{{ token.alt_arts|join(", ") or "—" }}</dd>
-        <dt>Alias</dt><dd>{{ token.alias or "—" }}</dd>
+        {% endif %}
+        <dt class="additional-info">Alt arts</dt><dd class="additional-info">{{ token.alt_arts|join(", ") or "—" }}</dd>
+        {% if token.alias %}
+        <dt class="additional-info">Alias</dt><dd class="additional-info">{{ token.alias }}</dd>
+        {% endif %}
         <dt>Related cards</dt>
         <dd>
             {% if related %}
@@ -25,7 +28,7 @@
     </dl>
     <h4>Rule text</h4>
     {% if token.rule_text %}
-        <div class="rule-text">{{ token.rule_text | render_rule_text(keyword_reminders) }}</div>
+        <div class="rule-text">{{ token.rule_text | render_rule_text(keyword_reminders, card_facts) }}</div>
     {% else %}
         <p>—</p>
     {% endif %}

@@ -235,13 +235,12 @@ def commit_face(
         rule_text=face.rule_text,
         keyword_ids=keyword_ids,
         related_cards=_canonicalize_related(list(face.related_from_notes), repos),
-        design_type=design_type_value,
         notes=notes_body,
         printed=face.notes.status_printed,
         alias=face.alias,
     )
-    # Card-only columns: ``starting_loyalty`` and ``sets`` apply to Card only.
-    # ``sets`` was removed from Token in 0004 (Phase 1.6 prompt 3 bug 6).
+    # Card-only columns: ``starting_loyalty``, ``sets``, ``design_type``.
+    # Tokens dropped ``sets`` in 0004 and ``design_type`` in 0005.
 
     set_name_n = normalize_set_name(set_name)
     alt_art_label = preview.accept_as_alternate_label
@@ -253,11 +252,11 @@ def commit_face(
             # when the import provides something.
             if value not in (None, "", []):
                 setattr(existing, attr, value)
-        # Card-only: starting_loyalty. Same empty-import guard as above.
-        if effective_route == "card" and face.starting_loyalty is not None:
-            existing.starting_loyalty = face.starting_loyalty
-        # Tokens no longer carry a ``sets`` column — only Cards do.
+        # Card-only columns: starting_loyalty, design_type.
         if effective_route == "card":
+            if face.starting_loyalty is not None:
+                existing.starting_loyalty = face.starting_loyalty
+            existing.design_type = design_type_value
             repo.append_set(existing, set_name_n)
         if alt_art_label or resolution == "alternate":
             label = alt_art_label or "alternate"
@@ -279,6 +278,7 @@ def commit_face(
         new_kwargs["rarity"] = rarity
         new_kwargs["power_level"] = pwl
         new_kwargs["starting_loyalty"] = face.starting_loyalty
+        new_kwargs["design_type"] = design_type_value
         row = repos.cards.create(**new_kwargs)
     else:
         row = repos.tokens.create(**new_kwargs)

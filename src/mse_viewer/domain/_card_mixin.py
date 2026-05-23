@@ -43,7 +43,8 @@ class CardCoreMixin:
     def alt_arts(cls) -> Mapped[list[str]]:
         return mapped_column(JSONB, nullable=False, default=list)
 
-    design_type: Mapped[str] = mapped_column(String(64), nullable=False, default="Normal")
+    # ``design_type`` lives on Card only (Phase 1.6 prompt 4 item 2) — Tokens
+    # don't carry a design taxonomy.
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     printed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # MSE's free-text relationship field. The structured prefixes (``Evo:``,
