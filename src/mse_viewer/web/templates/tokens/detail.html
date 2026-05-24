@@ -2,15 +2,18 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ token.name }} — mse-viewer{% endblock %}
 {% block content %}
-<article class="{{ row_hue_class(token) }}">
+<article class="{{ detail_hue_class(token) }}">
     <header>
         <div class="detail-header">
             <div class="title-block">
                 <h2 class="{{ rarity_text_class(None, is_token=True) }}">{{ token.name }}</h2>
                 <p class="type-line">{{ token.card_type }}{% if token.card_subtype %} — {{ token.card_subtype }}{% endif %}</p>
             </div>
-            <div class="chip-row">
-                {{ ui.card_chips(token, is_token=True) }}
+            <div class="header-meta">
+                <div class="chip-row">
+                    {{ ui.card_chips(token, is_token=True) }}
+                </div>
+                {{ ui.color_tag_row(token.colors) }}
             </div>
         </div>
     </header>

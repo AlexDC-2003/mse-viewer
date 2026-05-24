@@ -2,15 +2,18 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ card.name }} — mse-viewer{% endblock %}
 {% block content %}
-<article class="{{ row_hue_class(card) }}">
+<article class="{{ detail_hue_class(card) }}">
     <header>
         <div class="detail-header">
             <div class="title-block">
                 <h2 class="{{ rarity_text_class(card.rarity) }}">{{ card.name }}</h2>
                 <p class="type-line">{{ card.card_type }}{% if card.card_subtype %} — {{ card.card_subtype }}{% endif %}</p>
             </div>
-            <div class="chip-row">
-                {{ ui.card_chips(card) }}
+            <div class="header-meta">
+                <div class="chip-row">
+                    {{ ui.card_chips(card) }}
+                </div>
+                {{ ui.color_tag_row(card.colors) }}
             </div>
         </div>
     </header>
@@ -30,7 +33,7 @@
         </div>
         <div class="field">
             <p class="field-label">Rarity</p>
-            <p class="field-value {{ rarity_text_class(card.rarity) }}">{{ card.rarity }}</p>
+            <p class="field-value{% if rarity_slug(card.rarity) == 'mythic' %} rarity-text-mythic{% endif %}">{{ card.rarity }}</p>
         </div>
         {% if card.power or card.toughness %}
         <div class="field">

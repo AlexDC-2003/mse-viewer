@@ -21,10 +21,10 @@
             <th>Cost</th>
             <th>P/T</th>
             <th>Rarity</th>
-            <th class="additional-info">Sets</th>
             <th class="cell-center">Printed</th>
             <th>Rule text</th>
-            <th class="cell-center">PWL</th>
+            <th class="additional-info">Sets</th>
+            <th class="cell-center additional-info">PWL</th>
         </tr>
     </thead>
     <tbody>
@@ -32,20 +32,24 @@
         <tr class="{{ row_hue_class(c) }}">
             <td>
                 <a href="/cards/{{ c.id }}" class="{{ rarity_text_class(c.rarity) }}"><strong>{{ c.name }}</strong></a>
-                {% if is_evolution(c) %}<span class="chip chip-evolution">Evo</span>{% endif %}
-                {% if is_hero(c) %}<span class="chip chip-hero">Hero</span>{% endif %}
-                {% if is_legendary(c) %}<span class="chip chip-legendary">Leg</span>{% endif %}
             </td>
             <td><small>{{ c.card_type }}{% if c.card_subtype %} — {{ c.card_subtype }}{% endif %}</small></td>
             <td class="cell-tight">{{ c.casting_cost | render_cost }}</td>
             <td class="cell-tight">
                 {% if c.power or c.toughness %}{{ c.power or "" }}/{{ c.toughness or "" }}{% endif %}
             </td>
-            <td><span class="{{ rarity_chip_class(c.rarity) }}">{{ rarity_chip_label(c.rarity) }}</span></td>
-            <td class="additional-info"><small>{{ c.sets|join(", ") }}</small></td>
+            <td>
+                <div class="rarity-cell-inner">
+                    {% if is_evolution(c) %}<span class="chip chip-evolution">Evolution</span>{% endif %}
+                    {% if is_hero(c) %}<span class="chip chip-hero">Hero</span>{% endif %}
+                    {% if is_legendary(c) %}<span class="chip chip-legendary">Legendary</span>{% endif %}
+                    <span class="{{ rarity_chip_class(c.rarity) }}">{{ rarity_chip_label(c.rarity) }}</span>
+                </div>
+            </td>
             <td class="cell-center">{% if c.printed %}<span class="printed-tick" title="Printed">✓</span>{% endif %}</td>
             <td><small>{{ c.rule_text | render_rule_text_snippet }}</small></td>
-            <td class="cell-center">{{ c.power_level if c.power_level is not none else "" }}</td>
+            <td class="additional-info"><small>{{ c.sets|join(", ") }}</small></td>
+            <td class="cell-center additional-info">{{ c.power_level if c.power_level is not none else "" }}</td>
         </tr>
     {% endfor %}
     </tbody>

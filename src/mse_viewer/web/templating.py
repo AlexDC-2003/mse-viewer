@@ -82,6 +82,21 @@ def _hybrid_classes(parts: list[str]) -> str:
     return "mh-multi"
 
 
+# Inline SVG for the tap glyph — a 270° clockwise arc with an arrowhead at
+# the top, sized to the host font (the surrounding ``.mana`` span sets the
+# pixel size via ``em``-relative width/height). ``currentColor`` keeps the
+# arrow color in sync with the chip's text color, so palette changes need
+# to update only one place.
+_TAP_SVG = (
+    '<svg viewBox="0 0 32 32" class="mana-icon" aria-hidden="true" '
+    'xmlns="http://www.w3.org/2000/svg">'
+    '<path fill="currentColor" d="'
+    'M16 4 A12 12 0 1 1 4 16 L8 16 A8 8 0 1 0 16 8 Z '
+    'M14 1.5 L23 6 L14 10.5 Z'
+    '"/></svg>'
+)
+
+
 def _mana_span_for_token(raw: str) -> str:
     """Render one ``{X}`` token (the inner body, no braces) as a span."""
     body = raw.strip()
@@ -101,13 +116,22 @@ def _mana_span_for_token(raw: str) -> str:
         return f'<span class="mana mana-num" title="{html.escape(body)}">{html.escape(body)}</span>'
     letter = body[0].upper()
     if len(body) == 1 and letter in _MANA_KNOWN_LETTERS:
-        # Tap glyph has no visible text — the icon is drawn from pseudo-elements.
         if letter == "T":
-            return f'<span class="mana mana-T" title="Tap">{html.escape(letter)}</span>'
+            # Tap glyph: pure-icon span (no visible text — the SVG arrow IS the
+            # glyph). The chip background still comes from the ``.mana-T``
+            # class in the stylesheet.
+            return f'<span class="mana mana-T" title="Tap">{_TAP_SVG}</span>'
         return f'<span class="mana mana-{letter}" title="{html.escape(letter)}">{html.escape(letter)}</span>'
     # Unknown token — fall back to a plain gray pill so the text is still readable.
     label = html.escape(body.upper())
     return f'<span class="mana" title="{label}">{label}</span>'
+
+
+# Some older / hand-authored reminder text leaks a literal ``<T>`` (no
+# ``<sym>`` wrapper) into storage. Post-escape it shows as ``&lt;T&gt;``,
+# which the brace tokenizer above doesn't see. This second pass recognizes
+# the angle-bracket form of the tap glyph and replaces it inline.
+_ANGLE_TAP_RE = re.compile(r"&lt;T&gt;")
 
 
 def _inject_mana_symbols(escaped_text: str) -> str:
@@ -115,8 +139,12 @@ def _inject_mana_symbols(escaped_text: str) -> str:
 
     Only the brace tokens are touched — the rest of the string is preserved
     verbatim (so any ``<i>`` / ``<br>`` HTML already present remains intact).
+    A second pass also catches the legacy ``<T>`` (escaped to ``&lt;T&gt;``)
+    form that older reminder text sometimes carries.
     """
-    return _MANA_TOKEN_RE.sub(lambda m: _mana_span_for_token(m.group(1)), escaped_text)
+    out = _MANA_TOKEN_RE.sub(lambda m: _mana_span_for_token(m.group(1)), escaped_text)
+    out = _ANGLE_TAP_RE.sub(lambda _m: _mana_span_for_token("T"), out)
+    return out
 
 
 def render_text(value: str | None) -> Markup:
@@ -511,7 +539,10 @@ def _supertype_words(card_type: str | None) -> set[str]:
 
 
 def is_hero(obj) -> bool:
-    return "hero" in _supertype_words(getattr(obj, "card_type", None))
+    # ``Heroic`` is the actual MSE supertype on this corpus — older sets
+    # sometimes used ``Hero`` directly, so accept either. (Phase 2.0 prompt 3 #3.)
+    words = _supertype_words(getattr(obj, "card_type", None))
+    return "hero" in words or "heroic" in words
 
 
 def is_evolution(obj) -> bool:
@@ -527,11 +558,34 @@ def is_snow(obj) -> bool:
 
 
 def row_hue_class(obj) -> str:
-    """Return ``"row-evolution"``, ``"row-hero"`` or ``""`` for a card/token."""
+    """Return ``"row-evolution"``, ``"row-hero"`` or ``""`` for a card/token row.
+
+    Used on list views only — list rows don't pick up a rarity hue, just the
+    Evolution / Hero tint (the rarity column already has its own chip).
+    """
     if is_evolution(obj):
         return "row-evolution"
     if is_hero(obj):
         return "row-hero"
+    return ""
+
+
+def detail_hue_class(obj) -> str:
+    """Return the article-level hue class for a detail page.
+
+    Same priority as :func:`row_hue_class` but with one extra fallback: when
+    the card is neither Evolution nor Hero, a Mythic-Rare card gets the
+    metallic-orange wash (``row-mythic``). Rarity-tinted text still wins
+    independently — the wash colors the background, the text class colors
+    the title.
+    """
+    if is_evolution(obj):
+        return "row-evolution"
+    if is_hero(obj):
+        return "row-hero"
+    rarity = getattr(obj, "rarity", None)
+    if rarity_slug(rarity) == "mythic":
+        return "row-mythic"
     return ""
 
 
@@ -563,7 +617,56 @@ def rarity_chip_class(rarity: str | None, *, is_token: bool = False) -> str:
 
 
 def rarity_text_class(rarity: str | None, *, is_token: bool = False) -> str:
-    return f"rarity-text-{rarity_slug(rarity, is_token=is_token)}"
+    """Text-color class for a card's display name / title.
+
+    Tokens and ``special``-rarity cards return ``""`` (Phase 2.0 prompt 3 #1):
+    their chip already conveys the rarity, and the pearl-purple gradient
+    over the title text was visually noisy. Only common / uncommon / rare /
+    mythic produce a class.
+    """
+    slug = rarity_slug(rarity, is_token=is_token)
+    if slug == "special":
+        return ""
+    return f"rarity-text-{slug}"
+
+
+# Color-tag rendering (Phase 2.0 prompt 3 follow-up — color squares below the
+# rarity chips on the detail page).
+#
+# Card / token ``colors`` are stored as full-name strings ("white", "blue",
+# …) per ``ingest/derivations/colors.py``. Each maps back to the same
+# letter the mana glyphs use, so the color-tag squares can re-use the
+# same backgrounds as the corresponding ``.mana-X`` pip.
+_COLOR_NAME_TO_LETTER = {
+    "white": "W",
+    "blue": "U",
+    "black": "B",
+    "red": "R",
+    "green": "G",
+    "orange": "O",
+    "pink": "K",
+    "purple": "P",
+    "brown": "E",
+    "yellow": "L",
+    "teal": "N",
+    "colorless": "C",
+    # Pass-through for storage that already uses letters.
+    "w": "W", "u": "U", "b": "B", "r": "R", "g": "G",
+    "o": "O", "k": "K", "p": "P", "e": "E", "l": "L",
+    "n": "N", "c": "C",
+}
+
+
+def color_to_mana_letter(name: str | None) -> str | None:
+    """Map a stored color name (or letter) to the canonical mana letter.
+
+    Returns ``None`` when the input doesn't resolve, so templates can ``{% if %}``
+    around the loop body and skip unrecognized values.
+    """
+    if not name:
+        return None
+    key = name.strip().lower()
+    return _COLOR_NAME_TO_LETTER.get(key)
 
 
 def rarity_chip_label(rarity: str | None, *, is_token: bool = False) -> str:
@@ -592,10 +695,12 @@ def get_templates() -> Jinja2Templates:
     t.env.globals["is_legendary"] = is_legendary
     t.env.globals["is_snow"] = is_snow
     t.env.globals["row_hue_class"] = row_hue_class
+    t.env.globals["detail_hue_class"] = detail_hue_class
     t.env.globals["rarity_slug"] = rarity_slug
     t.env.globals["rarity_chip_class"] = rarity_chip_class
     t.env.globals["rarity_text_class"] = rarity_text_class
     t.env.globals["rarity_chip_label"] = rarity_chip_label
+    t.env.globals["color_to_mana_letter"] = color_to_mana_letter
     return t
 
 

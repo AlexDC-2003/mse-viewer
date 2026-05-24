@@ -28,16 +28,20 @@
         <tr class="{{ row_hue_class(t) }}">
             <td>
                 <a href="/tokens/{{ t.id }}" class="{{ rarity_text_class(None, is_token=true) }}"><strong>{{ t.name }}</strong></a>
-                {% if is_evolution(t) %}<span class="chip chip-evolution">Evo</span>{% endif %}
-                {% if is_hero(t) %}<span class="chip chip-hero">Hero</span>{% endif %}
-                {% if is_legendary(t) %}<span class="chip chip-legendary">Leg</span>{% endif %}
             </td>
             <td><small>{{ t.card_type }}{% if t.card_subtype %} — {{ t.card_subtype }}{% endif %}</small></td>
             <td class="cell-tight">{{ t.casting_cost | render_cost }}</td>
             <td class="cell-tight">
                 {% if t.power or t.toughness %}{{ t.power or "" }}/{{ t.toughness or "" }}{% endif %}
             </td>
-            <td><span class="{{ rarity_chip_class(None, is_token=true) }}">{{ rarity_chip_label(None, is_token=true) }}</span></td>
+            <td>
+                <div class="rarity-cell-inner">
+                    {% if is_evolution(t) %}<span class="chip chip-evolution">Evolution</span>{% endif %}
+                    {% if is_hero(t) %}<span class="chip chip-hero">Hero</span>{% endif %}
+                    {% if is_legendary(t) %}<span class="chip chip-legendary">Legendary</span>{% endif %}
+                    <span class="{{ rarity_chip_class(None, is_token=true) }}">{{ rarity_chip_label(None, is_token=true) }}</span>
+                </div>
+            </td>
             <td><small>{{ t.rule_text | render_rule_text_snippet }}</small></td>
         </tr>
     {% endfor %}

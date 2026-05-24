@@ -23,16 +23,28 @@
     --mv-rarity-rare: #c9a227;
     --mv-rarity-mythic: linear-gradient(135deg, #ff7a18 0%, #d6432a 60%, #c0382a 100%);
     --mv-rarity-mythic-text: #d6432a;
-    --mv-rarity-special: linear-gradient(135deg, #c8a8e9 0%, #b18cd9 50%, #8a6fc9 100%);
-    --mv-rarity-special-text: #8a6fc9;
+    /* "Special" — much paler / whiter purple than evolution so the two
+       palettes are visually distinct. (Phase 2.0 prompt 2 #2.) */
+    --mv-rarity-special: linear-gradient(135deg, #fbf5ff 0%, #e9d5fa 45%, #c4a6e6 100%);
+    --mv-rarity-special-text: #6f4ba0;
 
-    /* Evolution / Hero hues. */
+    /* Evolution / Hero hues. The ``-row`` variants are deeper / more
+       saturated so the row background still reads as purple / gold in a
+       dense table — the lighter ``-bg`` is for the larger article surface.
+       (Phase 2.0 prompt 3 #2.) */
     --mv-evo-bg: rgba(168, 132, 224, 0.10);
+    --mv-evo-row-bg: rgba(151, 105, 220, 0.22);
     --mv-evo-border: rgba(168, 132, 224, 0.35);
     --mv-evo-chip-bg: linear-gradient(135deg, #a884e0 0%, #7a4fcf 100%);
-    --mv-hero-bg: rgba(231, 191, 80, 0.13);
-    --mv-hero-border: rgba(231, 191, 80, 0.45);
-    --mv-hero-chip-bg: linear-gradient(135deg, #f6c651 0%, #c89316 100%);
+    /* Hero hue, a touch brighter yellow (Phase 2.0 prompt 3 follow-up #2). */
+    --mv-hero-bg: rgba(248, 211, 86, 0.18);
+    --mv-hero-row-bg: rgba(241, 191, 38, 0.28);
+    --mv-hero-border: rgba(241, 191, 38, 0.50);
+    --mv-hero-chip-bg: linear-gradient(135deg, #ffd95a 0%, #d49a14 100%);
+    /* Mythic-rare detail wash (Phase 2.0 prompt 2 #3) — only used on the
+       detail-page <article>, not on list rows. */
+    --mv-mythic-bg: rgba(214, 67, 42, 0.10);
+    --mv-mythic-border: rgba(214, 67, 42, 0.35);
 
     /* Misc chip palettes. */
     --mv-legendary-chip-bg: linear-gradient(120deg, #6fe7e4 0%, #6dd2a5 30%, #f2f0ea 60%, #b88be5 100%);
@@ -153,6 +165,19 @@ article > footer {
     max-width: 60%;
     justify-content: flex-end;
 }
+/* Right-side column of the detail header: stacks the chip row and the
+   color-tag row tight against each other so the color squares sit
+   immediately below the rarity / supertype chips rather than after a
+   row-height gap. */
+.header-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+    flex: 0 0 auto;
+    max-width: 60%;
+}
+.header-meta .chip-row { max-width: 100%; }
 
 .detail-grid {
     display: grid;
@@ -198,6 +223,9 @@ article > footer {
    ============================================================ */
 
 .chip {
+    /* Default chip background — slightly darker than the page surface so the
+       deck format / "Token" / state chips don't disappear into the page
+       background (Phase 2.0 prompt 2 #7). */
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
@@ -206,18 +234,24 @@ article > footer {
     font-weight: 600;
     line-height: 1.25;
     border-radius: var(--mv-chip-radius);
-    background: var(--pico-card-sectioning-background-color, #f1f3f5);
-    color: var(--pico-color);
-    border: 1px solid transparent;
+    background: linear-gradient(135deg, #e3e7ee 0%, #c7cdd6 100%);
+    color: #1f2937;
+    border: 1px solid rgba(0, 0, 0, .08);
     white-space: nowrap;
     letter-spacing: 0.02em;
 }
 
-.chip-rarity-common    { background: #111315; color: #f7f7f7; }
+.chip-rarity-common    { background: #111315; color: #f7f7f7; border-color: rgba(255,255,255,.05); }
 .chip-rarity-uncommon  { background: linear-gradient(135deg, #d5d8dd, #aab1b9); color: #1f2937; }
 .chip-rarity-rare      { background: linear-gradient(135deg, #ffe27a, #c9a227); color: #3a2c00; }
 .chip-rarity-mythic    { background: var(--mv-rarity-mythic); color: #fff; }
-.chip-rarity-special   { background: var(--mv-rarity-special); color: #fff; }
+.chip-rarity-special   {
+    /* Whiter / pearl-purple chip so it does NOT collide with the
+       Evolution hue. (Phase 2.0 prompt 2 #2.) */
+    background: var(--mv-rarity-special);
+    color: var(--mv-rarity-special-text);
+    border-color: rgba(122, 79, 207, .25);
+}
 
 .chip-evolution { background: var(--mv-evo-chip-bg); color: #fff; }
 .chip-hero      { background: var(--mv-hero-chip-bg); color: #2d2200; }
@@ -233,6 +267,52 @@ article > footer {
 
 /* Inline chips in tables — slightly smaller. */
 td .chip { font-size: 0.7rem; padding: 0.1rem 0.5rem; }
+
+/* Color-tag row — small filled squares mirroring the card / token colors
+   field, sitting directly under the rarity / supertype chip row. The fill
+   palette matches each ``.mana-X`` pip background so the same shade reads
+   for both the inline mana glyph and the standalone color marker. */
+.color-tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    justify-content: flex-end;
+    padding-top: 0.25em;
+}
+.color-tag {
+    display: inline-block;
+    width: 1.5rem;
+    height: 1.25rem;
+    border-radius: 0.22rem;
+    border: 1px solid rgba(0, 0, 0, .22);
+    box-shadow: inset 0 -0.12em 0 rgba(0, 0, 0, .18);
+    
+}
+.color-tag-W { background: #fff8d6; }
+.color-tag-U { background: #2c91d6; }
+.color-tag-B { background: #1a1814; }
+.color-tag-R { background: #e2492f; }
+.color-tag-G { background: #2d8b58; }
+.color-tag-C { background: #8e8e8a; }
+.color-tag-O { background: linear-gradient(135deg, #ff9a3c, #f27224); }
+.color-tag-L { background: linear-gradient(135deg, #ffec5a, #e6b800); }
+.color-tag-K { background: linear-gradient(135deg, #ff95cd, #e0469a); }
+.color-tag-P { background: linear-gradient(135deg, #b894d8, #7d54b8); }
+.color-tag-E { background: linear-gradient(135deg, #c79a6a, #8b5a3a); }
+.color-tag-N { background: linear-gradient(135deg, #4de0d9, #14b6ad); }
+
+/* Rarity column on the list views holds the rarity chip plus optional
+   Evolution / Hero / Legendary supertype chips. The flex container lives
+   INSIDE the <td> rather than ON it — replacing the td's
+   ``display: table-cell`` with ``display: flex`` makes the row hue stop
+   painting because the cell drops out of the table layout. (Phase 2.0
+   prompt 3 follow-up #1 / regression fix.) */
+.rarity-cell-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+}
 
 /* ============================================================
    Display name color by rarity
@@ -280,11 +360,27 @@ article.row-hero > header {
     background: linear-gradient(180deg, var(--mv-hero-bg), transparent);
     border-bottom-color: var(--mv-hero-border);
 }
+/* Mythic rare wash for the detail-page article (only added when the card
+   isn't already Evolution / Hero — that priority is enforced by
+   ``detail_hue_class`` in Python). Phase 2.0 prompt 2 #3. */
+article.row-mythic {
+    background:
+        linear-gradient(180deg, var(--mv-mythic-bg), transparent 35%),
+        var(--pico-card-background-color, var(--pico-background-color));
+    border-color: var(--mv-mythic-border);
+}
+article.row-mythic > header {
+    background: linear-gradient(180deg, var(--mv-mythic-bg), transparent);
+    border-bottom-color: var(--mv-mythic-border);
+}
 
-tr.row-evolution > td { background: var(--mv-evo-bg); }
-tr.row-evolution > td:first-child { border-left: 3px solid var(--mv-evo-border); }
-tr.row-hero > td { background: var(--mv-hero-bg); }
-tr.row-hero > td:first-child { border-left: 3px solid var(--mv-hero-border); }
+tr.row-evolution > td { background: var(--mv-evo-row-bg); }
+tr.row-evolution > td:first-child { border-left: 3px solid var(--mv-evo-chip-bg); }
+tr.row-hero > td { background: var(--mv-hero-row-bg); }
+tr.row-hero > td:first-child { border-left: 3px solid var(--mv-hero-chip-bg); }
+/* Keep the hover-tint subtler so it doesn't fight the row hue. */
+table tbody tr.row-evolution:hover > td { background: rgba(151, 105, 220, 0.30); }
+table tbody tr.row-hero:hover > td { background: rgba(241, 191, 38, 0.36); }
 
 /* ============================================================
    Tables
@@ -333,8 +429,21 @@ table tbody td {
     margin: 0.5rem 0 1rem;
 }
 .toolbar form {
+    /* ``display: contents`` lets the form's children (the search input + the
+       Search button) participate directly in the toolbar's flex layout. */
     display: contents;
     margin: 0;
+}
+/* Pico defaults inputs and buttons inside a <form> to ``width: 100%``. In a
+   flex toolbar that forces both the search input and the Search button to
+   claim the full row, wrapping every secondary button to a second line. We
+   reset width to ``auto`` and pin each item's flex sizing so the toolbar
+   stays on one row. (Phase 2.0 prompt 3 follow-up — single-row toolbar.) */
+.toolbar input,
+.toolbar select,
+.toolbar button,
+.toolbar a[role="button"] {
+    width: auto;
 }
 .toolbar .search-bar {
     flex: 1 1 280px;
@@ -345,9 +454,11 @@ table tbody td {
 .toolbar .search-bar input {
     margin: 0;
     height: 100%;
+    width: 100%;
 }
 .toolbar button,
 .toolbar a[role="button"] {
+    flex: 0 0 auto;
     margin: 0;
     height: 2.5rem;
     padding: 0 1rem;
@@ -370,6 +481,10 @@ table tbody td {
 }
 .action-row a[role="button"],
 .action-row button {
+    /* Same fix as ``.toolbar`` — Pico defaults buttons inside <form> to
+       full width, which forces wrap; reset to content width. */
+    width: auto;
+    flex: 0 0 auto;
     margin: 0;
     height: 2.5rem;
     padding: 0 1rem;
@@ -429,94 +544,109 @@ pre { background: var(--pico-code-background-color); padding: .5rem; border-radi
    ============================================================ */
 
 .mana {
+    /* Sized as a circle whose diameter matches the host font's cap-height.
+       ``vertical-align: middle`` aligns the circle's geometric centre with
+       the parent's x-height middle — eyeballs read this as "on the same
+       line as the surrounding text" much better than baseline-relative
+       offsets. (Phase 2.0 prompt 2 #5.) */
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.05em;
-    height: 1.05em;
+    box-sizing: border-box;
+    width: 1.15em;
+    height: 1.15em;
     line-height: 1;
-    font-size: 0.78em;
+    font-size: 0.85em;
     font-weight: 700;
     border-radius: 50%;
     background: #d6d1c4;
     color: #1c1a14;
-    vertical-align: -0.12em;
-    margin: 0 0.05em;
-    box-shadow: inset 0 -0.08em 0 rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.08);
+    /* Positive vertical-align raises the box above the baseline. The
+       circle's geometric centre then sits roughly on the parent x-height
+       middle, matching the eye-level of surrounding lowercase text.
+       (Phase 2.0 prompt 3 #4.) */
+    vertical-align: 0.0em;
+    margin: 0 0.06em;
+    box-shadow: inset 0 -0.08em 0 rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.10);
     text-shadow: 0 0.04em 0 rgba(255,255,255,.25);
     font-family: "Segoe UI", system-ui, sans-serif;
     user-select: none;
     position: relative;
 }
 
-.mana-W { background: #f9faf2; color: #2b2616; }
+/* Inline SVG used by the tap glyph (and any other future glyphs that
+   draw their own icon instead of carrying a text letter). Sized to fit
+   inside the chip with a small inset so the strokes don't touch the
+   rim. */
+.mana .mana-icon {
+    width: 78%;
+    height: 78%;
+    display: block;
+}
+
+/* Tap arrow specifically: flip vertically then rotate 90° clockwise.
+   (Phase 2.0 prompt 3 #5.) */
+.mana-T .mana-icon {
+    transform: rotate(270deg) scaleY(-1);
+}
+
+.mana-W { background: #fff8d6; color: #2b2616; } /* off-yellow cream (Phase 2.0 prompt 2 #8). */
 .mana-U { background: #2c91d6; color: #f5fafd; }
 .mana-B { background: #1a1814; color: #ece8da; }
 .mana-R { background: #e2492f; color: #fff5f0; }
 .mana-G { background: #2d8b58; color: #f1faf3; }
-.mana-C { background: #c8c4b5; color: #2a2920; }
+.mana-C { background: #8e8e8a; color: #f2f0e8; }
 
 /* Brewer / extended palette colors used by MSE. */
-.mana-O { background: linear-gradient(135deg, #ff9a3c, #f27224); color: #fff; } /* orange */
-.mana-L { background: linear-gradient(135deg, #c79a6a, #8b5a3a); color: #fff; } /* land brown */
-.mana-P { background: #5a5260; color: #f1eaff; }                                 /* phyrexian */
-.mana-K { background: linear-gradient(135deg, #d35da5, #a83a82); color: #fff; }  /* pink */
-.mana-E { background: linear-gradient(135deg, #f3d44a, #c79817); color: #2a1f00; }/* energy */
-.mana-N { background: linear-gradient(135deg, #6fc7c1, #338f86); color: #fff; }  /* teal */
+.mana-O { background: linear-gradient(135deg, #ff9a3c, #f27224); color: #fff; }   /* orange */
+/* L is the bright shiny yellow brewer color (the user clarified L = yellow,
+   E = brown; the previous mapping had them swapped). */
+.mana-L { background: linear-gradient(135deg, #ffec5a, #e6b800); color: #3a2c00; } /* yellow */
+.mana-P { background: linear-gradient(135deg, #b894d8, #7d54b8); color: #fff; }    /* phyrexian (brighter purple) */
+.mana-K { background: linear-gradient(135deg, #ff95cd, #e0469a); color: #fff; }    /* pink */
+.mana-E { background: linear-gradient(135deg, #c79a6a, #8b5a3a); color: #fff; }    /* energy brown */
+.mana-N { background: linear-gradient(135deg, #4de0d9, #14b6ad); color: #fff; }    /* cyan-teal */
 
 /* X / Y / Z and bare numbers — colorless gray with the symbol inside. */
 .mana-X, .mana-Y, .mana-Z, .mana-num { background: #c8c4b5; color: #2a2920; }
 .mana-S { background: linear-gradient(160deg, #f8fbff 0%, #d8e3ec 60%, #aab7c2 100%); color: #1f3445; }
 
-/* Tap symbol — gray with curved arrow drawn from pseudo-elements. */
+/* Tap symbol — chip background plus an inline SVG arrow. The SVG is
+   emitted by ``_TAP_SVG`` in ``templating.py``; the chip just supplies the
+   palette here. (Phase 2.0 prompt 2 #1.) */
 .mana-T {
-    background: linear-gradient(135deg, #e5e1d4, #b8b2a3);
-    color: transparent;
-}
-.mana-T::before {
-    content: "";
-    position: absolute;
-    inset: 22%;
-    border-radius: 50%;
-    border: 0.1em solid #2a2920;
-    border-right-color: transparent;
-    border-top-color: transparent;
-    transform: rotate(-30deg);
-    box-sizing: border-box;
-}
-.mana-T::after {
-    content: "";
-    position: absolute;
-    left: 58%;
-    top: 22%;
-    width: 0;
-    height: 0;
-    border-left: 0.18em solid transparent;
-    border-right: 0.18em solid transparent;
-    border-top: 0.22em solid #2a2920;
+    background: linear-gradient(135deg, #e8e4d6, #b8b2a3);
+    color: #1f1d16;
+    vertical-align: -0.05em;
 }
 
 /* Untap (Q) symbol — fallback. */
 .mana-Q { background: linear-gradient(135deg, #2a2920, #4a4a3a); color: #e5e1d4; }
 
-/* Hybrid mana — slanted split oval with two halves of color. */
+/* Hybrid mana — slanted split oval with two halves of color.
+   Height matches the regular ``.mana`` circle (same font-size, same
+   1.15em box) so the row of glyphs reads as a single visual rhythm.
+   (Phase 2.0 prompt 2 #6.) */
 .mana-hybrid {
     width: auto;
-    min-width: 1.4em;
+    min-width: 1.55em;
+    height: 1.15em;
     border-radius: 1em;
     background: transparent;
     color: #fff;
     overflow: hidden;
     box-shadow: inset 0 -0.08em 0 rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.18);
     text-shadow: 0 1px 1px rgba(0,0,0,.35);
-    font-size: 0.62em;
-    padding: 0 0.35em;
+    padding: 0 0.28em;
+    vertical-align: 0.10em;
 }
 .mana-hybrid .mana-hybrid-text {
     position: relative;
     z-index: 2;
-    letter-spacing: 0.01em;
+    letter-spacing: 0;
     white-space: nowrap;
+    font-size: 0.78em;
+    line-height: 1;
 }
 .mana-hybrid::before,
 .mana-hybrid::after {
@@ -531,13 +661,13 @@ pre { background: var(--pico-code-background-color); padding: .5rem; border-radi
 .mana-hybrid::after  { right: 0; }
 
 /* Hybrid colors (covers all two-element combinations alphabetically sorted). */
-.mana-hybrid.mh-WU::before { background: #f9faf2; }
+.mana-hybrid.mh-WU::before { background: #fff8d6; }
 .mana-hybrid.mh-WU::after  { background: #2c91d6; }
-.mana-hybrid.mh-WB::before { background: #f9faf2; }
+.mana-hybrid.mh-WB::before { background: #fff8d6; }
 .mana-hybrid.mh-WB::after  { background: #1a1814; }
-.mana-hybrid.mh-WR::before { background: #f9faf2; }
+.mana-hybrid.mh-WR::before { background: #fff8d6; }
 .mana-hybrid.mh-WR::after  { background: #e2492f; }
-.mana-hybrid.mh-WG::before { background: #f9faf2; }
+.mana-hybrid.mh-WG::before { background: #fff8d6; }
 .mana-hybrid.mh-WG::after  { background: #2d8b58; }
 .mana-hybrid.mh-UB::before { background: #2c91d6; }
 .mana-hybrid.mh-UB::after  { background: #1a1814; }
@@ -554,7 +684,7 @@ pre { background: var(--pico-code-background-color); padding: .5rem; border-radi
 
 /* Numeric-hybrid (2/W, 2/U, 2/B, 2/R, 2/G) — generic gray + colored half. */
 .mana-hybrid.mh-num-W::before { background: #c8c4b5; }
-.mana-hybrid.mh-num-W::after  { background: #f9faf2; }
+.mana-hybrid.mh-num-W::after  { background: #fff8d6; }
 .mana-hybrid.mh-num-U::before { background: #c8c4b5; }
 .mana-hybrid.mh-num-U::after  { background: #2c91d6; }
 .mana-hybrid.mh-num-B::before { background: #c8c4b5; }
@@ -566,21 +696,21 @@ pre { background: var(--pico-code-background-color); padding: .5rem; border-radi
 
 /* Three-color or unknown hybrid: render a gradient across all halves. */
 .mana-hybrid.mh-multi {
-    background: conic-gradient(from 180deg, #f9faf2, #2c91d6, #1a1814, #e2492f, #2d8b58, #f9faf2);
+    background: conic-gradient(from 180deg, #fff8d6, #2c91d6, #1a1814, #e2492f, #2d8b58, #fff8d6);
 }
 .mana-hybrid.mh-multi::before, .mana-hybrid.mh-multi::after { background: transparent; }
 
 /* Phyrexian hybrid (X/P) — color + phyrexian half. */
-.mana-hybrid.mh-WP::before { background: #f9faf2; }
-.mana-hybrid.mh-WP::after  { background: #5a5260; }
+.mana-hybrid.mh-WP::before { background: #fff8d6; }
+.mana-hybrid.mh-WP::after  { background: #8a6dba; }
 .mana-hybrid.mh-UP::before { background: #2c91d6; }
-.mana-hybrid.mh-UP::after  { background: #5a5260; }
+.mana-hybrid.mh-UP::after  { background: #8a6dba; }
 .mana-hybrid.mh-BP::before { background: #1a1814; }
-.mana-hybrid.mh-BP::after  { background: #5a5260; }
+.mana-hybrid.mh-BP::after  { background: #8a6dba; }
 .mana-hybrid.mh-RP::before { background: #e2492f; }
-.mana-hybrid.mh-RP::after  { background: #5a5260; }
+.mana-hybrid.mh-RP::after  { background: #8a6dba; }
 .mana-hybrid.mh-GP::before { background: #2d8b58; }
-.mana-hybrid.mh-GP::after  { background: #5a5260; }
+.mana-hybrid.mh-GP::after  { background: #8a6dba; }
 
 /* ============================================================
    "Additional information" toggle from Phase 1.6 — preserved

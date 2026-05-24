@@ -1,0 +1,9 @@
+1. the special rarity color shouldn't affect the name text like the other rarities
+
+2. the hue for the evolutions on the table view needs to be made a bit more purple/stronger. right now it's a bit too faded
+
+3. Heros are not detected at all. You can detect them by having "Heroic" in the supertype
+
+4. you still need to shift the glyphs up, they are still too low compared to regular text
+
+5. I still don't like the tap symbol glyph, can you flip the arrow vertically and rotate it 90 degrees clockwise?

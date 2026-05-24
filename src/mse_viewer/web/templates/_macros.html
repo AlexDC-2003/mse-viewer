@@ -1,6 +1,25 @@
 {# Shared Jinja macros for Phase 2.0 prompt 1 UI uplift.
    Imported as ``{% import "_macros.html" as ui %}`` at the top of a template. #}
 
+{% macro color_tag_row(colors) %}
+    {# Color squares (filled in the same shade as the matching mana pip)
+       rendered under the rarity / supertype chips on the detail page.
+       Unrecognized color names are silently dropped so we never emit a
+       bare ``.color-tag`` with no palette class. #}
+    {% set ns = namespace(any=false) %}
+    {% for c in colors or [] %}{% if color_to_mana_letter(c) %}{% set ns.any = true %}{% endif %}{% endfor %}
+    {% if ns.any %}
+    <div class="color-tag-row">
+        {% for c in colors %}
+            {% set letter = color_to_mana_letter(c) %}
+            {% if letter %}
+                <span class="color-tag color-tag-{{ letter }}" title="{{ c }}"></span>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+{% endmacro %}
+
 {% macro card_chips(obj, is_token=False, show_printed=True) %}
     {# Indicators rendered to the right of name/type-line on the detail page
        and inside the table cell on the list view. Order matches the prompt:
