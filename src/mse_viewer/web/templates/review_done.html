@@ -2,21 +2,29 @@
 {% block title %}Ingest finished — mse-viewer{% endblock %}
 {% block content %}
 <article>
-    <header><h2>Ingest session finished</h2></header>
-    <p><strong>{{ session.committed|length }}</strong> records written
-       (of which <strong>{{ session.auto_committed_count }}</strong> auto-passed without review) ·
-       <strong>{{ session.skipped|length }}</strong> skipped/rejected ·
-       total parsed <strong>{{ session.parsed_total }}</strong>.</p>
+    <header>
+        <hgroup>
+            <h2>Ingest session finished</h2>
+            <p class="muted">Session committed successfully.</p>
+        </hgroup>
+    </header>
+    <p>
+        <strong>{{ session.committed|length }}</strong> records written
+        (of which <strong>{{ session.auto_committed_count }}</strong> auto-passed without review) ·
+        <strong>{{ session.skipped|length }}</strong> skipped/rejected ·
+        total parsed <strong>{{ session.parsed_total }}</strong>.
+    </p>
     {% if session.deck_id %}
     <p>Deck created: <a href="/decks/{{ session.deck_id }}">view deck</a>.</p>
     {% elif session.deck_plan %}
     <p><strong>Deck not created.</strong> See the action log for details.</p>
     {% endif %}
-    <ul>
-        <li><a href="/cards">Browse cards</a></li>
-        <li><a href="/decks">Browse decks</a></li>
-        <li><a href="/log?kind=action">Review action log</a></li>
-        <li><a href="/upload">Upload another set</a></li>
-    </ul>
+    <div class="action-row">
+        <a href="/cards" role="button" class="secondary">Browse cards</a>
+        <a href="/decks" role="button" class="secondary">Browse decks</a>
+        <a href="/log?kind=action" role="button" class="secondary">Action log</a>
+        <span class="toolbar-spacer"></span>
+        <a href="/upload" role="button">Upload another set</a>
+    </div>
 </article>
 {% endblock %}

@@ -1,12 +1,16 @@
 {% extends "base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}Tokens — mse-viewer{% endblock %}
 {% block content %}
 <h1>Tokens <small>({{ tokens|length }})</small></h1>
-<form action="/tokens" method="get">
-    <input name="q" value="{{ q }}" placeholder="Search by name, rule text, or flavor…">
-    <button type="submit">Search</button>
-    <a href="/tokens/new" role="button" class="secondary">New token</a>
-</form>
+<div class="toolbar">
+    <form action="/tokens" method="get" role="search">
+        <input class="search-bar" name="q" value="{{ q }}" placeholder="Search by name, rule text, or flavor…">
+        <button type="submit">Search</button>
+    </form>
+    <span class="toolbar-spacer"></span>
+    <a href="/tokens/new" role="button">New token</a>
+</div>
 {% if tokens %}
 <table>
     <thead>
@@ -14,20 +18,29 @@
             <th>Name</th>
             <th>Type</th>
             <th>Cost</th>
-            <th>Colors</th>
             <th>P/T</th>
+            <th>Rarity</th>
             <th>Rule text</th>
         </tr>
     </thead>
     <tbody>
     {% for t in tokens %}
-        <tr>
-            <td><a href="/tokens/{{ t.id }}">{{ t.name }}</a></td>
-            <td>{{ t.card_type }}{% if t.card_subtype %} — {{ t.card_subtype }}{% endif %}</td>
-            <td>{{ t.casting_cost | render_cost }}</td>
-            <td>{{ t.colors | render_colors }}</td>
+        <tr class="{{ row_hue_class(t) }}">
             <td>
+                <a href="/tokens/{{ t.id }}" class="{{ rarity_text_class(None, is_token=true) }}"><strong>{{ t.name }}</strong></a>
+            </td>
+            <td><small>{{ t.card_type }}{% if t.card_subtype %} — {{ t.card_subtype }}{% endif %}</small></td>
+            <td class="cell-tight">{{ t.casting_cost | render_cost }}</td>
+            <td class="cell-tight">
                 {% if t.power or t.toughness %}{{ t.power or "" }}/{{ t.toughness or "" }}{% endif %}
+            </td>
+            <td>
+                <div class="rarity-cell-inner">
+                    {% if is_evolution(t) %}<span class="chip chip-evolution">Evolution</span>{% endif %}
+                    {% if is_hero(t) %}<span class="chip chip-hero">Hero</span>{% endif %}
+                    {% if is_legendary(t) %}<span class="chip chip-legendary">Legendary</span>{% endif %}
+                    <span class="{{ rarity_chip_class(None, is_token=true) }}">{{ rarity_chip_label(None, is_token=true) }}</span>
+                </div>
             </td>
             <td><small>{{ t.rule_text | render_rule_text_snippet }}</small></td>
         </tr>
@@ -35,6 +48,6 @@
     </tbody>
 </table>
 {% else %}
-<p>No tokens yet.</p>
+<p class="muted">No tokens yet.</p>
 {% endif %}
 {% endblock %}

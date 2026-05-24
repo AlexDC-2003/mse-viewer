@@ -176,6 +176,18 @@ def cards_list(request: Request, q: str | None = None, db: Session = Depends(get
     )
 
 
+@router.get("/cards/advanced")
+def cards_advanced_search(request: Request):
+    # Stub placeholder so the "Advanced search" button on /cards has a target.
+    # The full per-field advanced search lives under todo C — Phase 2.0 prompt 1
+    # only wires the navigation button.
+    return templates.TemplateResponse(
+        request,
+        "cards/advanced.html",
+        {"request": request},
+    )
+
+
 @router.get("/cards/{card_id}")
 def cards_detail(request: Request, card_id: int, db: Session = Depends(get_db)):
     cards_repo = CardRepository(db)

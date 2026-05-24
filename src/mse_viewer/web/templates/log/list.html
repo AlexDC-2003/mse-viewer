@@ -2,7 +2,7 @@
 {% block title %}Action / Notice log — mse-viewer{% endblock %}
 {% block content %}
 <h1>Log</h1>
-<form action="/log" method="get" class="grid">
+<form action="/log" method="get" class="toolbar">
     <label>Kind
         <select name="kind">
             <option value="">all</option>
@@ -21,7 +21,7 @@
             <option value="completed" {% if filter_state == "completed" %}selected{% endif %}>completed</option>
         </select>
     </label>
-    <label>&nbsp;<button type="submit">Filter</button></label>
+    <button type="submit">Filter</button>
 </form>
 
 {% if entries %}
@@ -34,7 +34,7 @@
     </tbody>
 </table>
 {% else %}
-    <p>No log entries.</p>
+    <p class="muted">No log entries.</p>
 {% endif %}
 
 <details>
@@ -42,7 +42,7 @@
     <form action="/log" method="post">
         <label>Title <input name="title" required></label>
         <label>Body <textarea name="body" rows="3"></textarea></label>
-        <button type="submit">Add</button>
+        <div class="action-row"><button type="submit">Add</button></div>
     </form>
 </details>
 {% endblock %}

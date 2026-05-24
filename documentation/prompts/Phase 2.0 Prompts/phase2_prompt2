@@ -1,0 +1,19 @@
+ok so it looks ok, but I Still have issues:
+
+1. the tap symbol glyph looks bad. Furthermore, it is sometimes not applied:
+Haste (This creature can attack and <T> as soon as it comes under your control.)
+
+2. Right now, the special rarity and the evolutions have the same hue.
+Make the special rarity have a slightly whiter purple
+
+3. Like for the evolutions and heros, ONLY IN THE DETAIL VIEW please add the metallic orange as part of the background (like for evos and heros). The evos and hero hues take priority for the background color, but rarities take priority for the text
+
+4. in the detail view, only the mythic rare rarity colors the text of the rarity in the detail view
+
+5. the glyphs are not in line with the text, they are slightly lower than the text
+6. also, on the vertical scale the oval hybrid glyphs are not as tall as the other glyphs, they are shorter
+
+7. The commander and 1v1 indicators need a slightly darker background, you can barely see them
+8. the white glyph needs a slightly more off-yellow background
+
+there are a few more things I will manually fix, but in total I think it looks great

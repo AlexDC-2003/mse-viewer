@@ -2,26 +2,27 @@
 {% block title %}Decks — mse-viewer{% endblock %}
 {% block content %}
 <h1>Decks <small>({{ decks|length }})</small></h1>
-<p>
-    <a href="/decks/new" role="button" class="secondary">New deck (manual)</a>
+<div class="action-row">
+    <span class="toolbar-spacer"></span>
     <a href="/upload?mode=deck" role="button" class="secondary">Import deck file</a>
-</p>
+    <a href="/decks/new" role="button">New deck</a>
+</div>
 {% if decks %}
 <table>
-    <thead><tr><th>Name</th><th>Format</th><th>Theme</th><th>Archetype</th><th>Size</th></tr></thead>
+    <thead><tr><th>Name</th><th>Format</th><th>Theme</th><th>Archetype</th><th class="cell-center">Size</th></tr></thead>
     <tbody>
     {% for d in decks %}
         <tr>
-            <td><a href="/decks/{{ d.id }}">{{ d.name }}</a></td>
-            <td>{{ d.format }}</td>
+            <td><a href="/decks/{{ d.id }}"><strong>{{ d.name }}</strong></a></td>
+            <td><span class="chip">{{ d.format }}</span></td>
             <td>{{ d.theme or "—" }}</td>
             <td>{{ d.archetype or "—" }}</td>
-            <td>{{ d.size }}</td>
+            <td class="cell-center">{{ d.size }}</td>
         </tr>
     {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p>No decks yet. Deck ingest UI is not in Phase 1.</p>
+<p class="muted">No decks yet.</p>
 {% endif %}
 {% endblock %}

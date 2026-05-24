@@ -3,33 +3,46 @@
 {% block content %}
 <h1>{% if is_new %}New keyword{% else %}Edit keyword: {{ keyword.name }}{% endif %}</h1>
 <form action="{{ action }}" method="post">
-    <label>Name (match string, identity)
-        <input name="name" required value="{{ keyword.name if keyword else '' }}">
-    </label>
-    <label>Source keyword field
-        <input name="source_keyword_field" value="{{ keyword.source_keyword_field or '' if keyword else '' }}">
-    </label>
-    <label>Accepted parameters (csv)
-        <input name="accepted_parameters" value="{{ keyword.accepted_parameters|join(', ') if keyword else '' }}">
-    </label>
-    <label>Reminder
-        <textarea name="reminder" rows="4">{{ keyword.reminder or '' if keyword else '' }}</textarea>
-    </label>
-    <label>Rules
-        <textarea name="rules" rows="6">{{ keyword.rules or '' if keyword else '' }}</textarea>
-    </label>
-    <label><input type="checkbox" name="pseudo_keyword" {% if keyword and keyword.pseudo_keyword %}checked{% endif %}> Pseudo keyword</label>
-    <label><input type="checkbox" name="is_stub" {% if keyword and keyword.is_stub %}checked{% endif %}> Stub (needs definition)</label>
-    <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
-    {% if not is_new %}
-        <a href="/keywords/{{ keyword.id }}" role="button" class="secondary">Cancel</a>
-    {% else %}
-        <a href="/keywords" role="button" class="secondary">Cancel</a>
-    {% endif %}
+    <fieldset>
+        <legend>Identity</legend>
+        <label>Name (match string, identity)
+            <input name="name" required value="{{ keyword.name if keyword else '' }}">
+        </label>
+        <div class="grid">
+            <label>Source keyword field
+                <input name="source_keyword_field" value="{{ keyword.source_keyword_field or '' if keyword else '' }}">
+            </label>
+            <label>Accepted parameters (csv)
+                <input name="accepted_parameters" value="{{ keyword.accepted_parameters|join(', ') if keyword else '' }}">
+            </label>
+        </div>
+    </fieldset>
+    <fieldset>
+        <legend>Text</legend>
+        <label>Reminder
+            <textarea name="reminder" rows="4">{{ keyword.reminder or '' if keyword else '' }}</textarea>
+        </label>
+        <label>Rules
+            <textarea name="rules" rows="6">{{ keyword.rules or '' if keyword else '' }}</textarea>
+        </label>
+    </fieldset>
+    <fieldset>
+        <legend>Flags</legend>
+        <label><input type="checkbox" name="pseudo_keyword" {% if keyword and keyword.pseudo_keyword %}checked{% endif %}> Pseudo keyword</label>
+        <label><input type="checkbox" name="is_stub" {% if keyword and keyword.is_stub %}checked{% endif %}> Stub (needs definition)</label>
+    </fieldset>
+    <div class="action-row">
+        <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
+        {% if not is_new %}
+            <a href="/keywords/{{ keyword.id }}" role="button" class="secondary">Cancel</a>
+        {% else %}
+            <a href="/keywords" role="button" class="secondary">Cancel</a>
+        {% endif %}
+    </div>
 </form>
 {% if not is_new %}
 <form action="/keywords/{{ keyword.id }}/delete" method="post" onsubmit="return confirm('Delete this keyword?')">
-    <button type="submit" class="contrast">Delete</button>
+    <div class="action-row"><button type="submit" class="contrast">Delete</button></div>
 </form>
 {% endif %}
 {% endblock %}

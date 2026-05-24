@@ -1,21 +1,25 @@
 {% extends "base.html" %}
 {% block title %}mse-viewer{% endblock %}
 {% block content %}
-<hgroup>
-    <h1>mse-viewer</h1>
-    <p>Companion DB for Magic Set Editor sets.</p>
-</hgroup>
-<section>
+<article>
+    <header>
+        <hgroup>
+            <h2>mse-viewer</h2>
+            <p class="muted">Companion DB for Magic Set Editor sets.</p>
+        </hgroup>
+    </header>
     <p>
         Start by <a href="/upload">uploading a set file</a>. The parser will pull cards
         and keywords out, then walk you through any cards that need a decision.
     </p>
-    <ul>
-        <li><a href="/cards">Browse cards</a></li>
-        <li><a href="/tokens">Browse tokens</a></li>
-        <li><a href="/keywords">Browse keywords</a></li>
-        <li><a href="/decks">Browse decks</a></li>
-        <li><a href="/log">Action log</a></li>
-    </ul>
-</section>
+    <div class="action-row">
+        <a href="/cards" role="button" class="secondary">Cards</a>
+        <a href="/tokens" role="button" class="secondary">Tokens</a>
+        <a href="/keywords" role="button" class="secondary">Keywords</a>
+        <a href="/decks" role="button" class="secondary">Decks</a>
+        <a href="/log" role="button" class="secondary">Action log</a>
+        <span class="toolbar-spacer"></span>
+        <a href="/upload" role="button">Upload set</a>
+    </div>
+</article>
 {% endblock %}

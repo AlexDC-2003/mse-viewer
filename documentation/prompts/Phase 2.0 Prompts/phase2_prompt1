@@ -1,0 +1,54 @@
+Ok, I am bored of technical stuff. So, let's do something about the UI.
+
+First, clean up the UI. The UI right now is a mess. The buttons are all over the place, text sizes are not equal, some text boxes are wayyy too big etc. Also, the detail view is not balanced, all text is on the left side of the screen and the right sidde is completely empty, I feel like the fields with short values (color, rarity, display name) could be used in dual column mode or something.
+
+Also, beautify the UI a bit. I actually really like the design you made, but it's a bit simplistic. Good for a beta, but maybe for a fuller app make it look a bit prettier (but dont overdo it!). Also, keep in mind I may reverse this if I don't like the new look.
+
+Also, implement this from the todo list:
+- [ ] **Evolution / Hero row hue + tag chip.** From `phase1_prompt_2.md §3` and deferred through every Phase 1.5 prompt. Light-purple background for Evolution rows, light-gold for Hero. Stronger-hued tag chip in the header next to the type line.
+
+Remember, the hues should also be applied to the entire detail page for evolutions.
+
+- [ ] **Mana-symbol rendering.** Storage is Scryfall-style `{W}{2/U}{X}`; render glyphs instead of literal braces via CSS / SVG sprites.
+This should affect all the scryfall-style literals:
+{W} {U} {B} {R} {G} {O} {L} {P} {K} {E} {N} {C} and the numbers should have glyphs that are circles of that color,with the letter in them
+the tapping symtol {T} should also have a glyph, that has "T" on it on a gray background (it possible, try to make a tap symbol and put it instead of the "T")
+when having G/U or G/U/R etc hybrid mana, try to make it an oval that is colored in multiple parts each with the respective colors
+make the symbols have the same height as the text
+the "colors" field SHOULD NOT BE AFFECTED. ONLY CHANGE THE MANA SYMBOLS, NOT THE COLORS FIELD
+
+For the indicators, please place all the indicators in the right side of the header containing the name and types e.g.:
+
+3o Apple                                                    < all the indicators here >
+Creature - Fruit                                            < all the indicators here >
+
+as mentioned, the following indicators should be:
+- if hero/evolution -> the chip that is colored with that color i mentioned, with the text "Hero" or "Evolution"
+- for the color, a chip with the rarity's color and the rarity text:
+    - common: Black
+    - uncommon: silver
+    - rare: gold
+    - mythic rare: metallic orange
+    - special or if it's a token: metallic light purple
+- If the card has the legendary supertype, an aura chip that contains hues of cyan, green, white and purple and says "Legendary"
+- if the card has the snow supertype, a snowy white-gray-blue with "Snow" on it
+- printed should appear in the detail view as a tag chip that says "Printed" if printed
+(- [ ] **Mark printed cards visually.** From `init_prompt_5` — the `printed` flag is read on parse but the UI doesn't surface it as a chip / badge on detail.)
+    on the table view, for the printed column, just display a tick if the card is printed or leave empty if not
+
+Note: vertically, the tag chips should have the same height as the left side of the row with the name and type. Do not extend it vertically!
+
+I also want the rarity to impact the display name color. Based on the rarity, I would like the display name and the rarity fields to have colored texts.
+
+For the todos, please inspect their full text.
+
+Also, in the table view, stop displaying the "Colors" column, move PWL to be the last column displayed, printed columns should display their indicators (aka the printed indicator if printed and nothing if not) and not words.
+
+Be creative with the display. Make it look like a modern platform.
+
+Also, please make sure the buttons and text are well placed and sized like the others.
+Right now, the "Missing" is smaller than the other buttons in the top right, and in the list view the "Search" button streches on the entire row while the New Deck button is small on the next row to the left. The buttons shouldn't stretch this much and should be on the same row:
+
+[search bar] [Search] < a bit of space > [Advanced Search] [New Deck] <- something like this. I want it look like a proper modern platform, if there is an even better way do it like that, but this is the minimum.
+
+Also, literally all the pages could use this uplift. As I said before "The UI right now is a mess. The buttons are all over the place, text sizes are not equal, some text boxes are wayyy too big etc. Also, the detail view is not balanced, all text is on the left side of the screen and the right sidde is completely empty, I feel like the fields with short values (color, rarity, display name) could be used in dual column mode or something."

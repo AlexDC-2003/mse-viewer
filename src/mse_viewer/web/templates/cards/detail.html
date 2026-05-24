@@ -1,49 +1,96 @@
 {% extends "base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}{{ card.name }} — mse-viewer{% endblock %}
 {% block content %}
-<article>
+<article class="{{ detail_hue_class(card) }}">
     <header>
-        <hgroup>
-            <h2>{{ card.name }}</h2>
-            <p>{{ card.card_type }}{% if card.card_subtype %} — {{ card.card_subtype }}{% endif %}</p>
-        </hgroup>
-        {% if card.printed %}<small><strong>printed</strong></small>{% endif %}
+        <div class="detail-header">
+            <div class="title-block">
+                <h2 class="{{ rarity_text_class(card.rarity) }}">{{ card.name }}</h2>
+                <p class="type-line">{{ card.card_type }}{% if card.card_subtype %} — {{ card.card_subtype }}{% endif %}</p>
+            </div>
+            <div class="header-meta">
+                <div class="chip-row">
+                    {{ ui.card_chips(card) }}
+                </div>
+                {{ ui.color_tag_row(card.colors) }}
+            </div>
+        </div>
     </header>
-    <dl>
-        <dt>Display name</dt><dd>{{ card.display_name }}</dd>
-        <dt>Cost</dt><dd>{{ card.casting_cost | render_cost or "—" }}</dd>
-        <dt>Colors</dt><dd>{{ card.colors | render_colors }}</dd>
+
+    <div class="detail-grid">
+        <div class="field">
+            <p class="field-label">Display name</p>
+            <p class="field-value {{ rarity_text_class(card.rarity) }}">{{ card.display_name }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Cost</p>
+            <p class="field-value">{{ card.casting_cost | render_cost or "—" }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Colors</p>
+            <p class="field-value">{{ card.colors | render_colors }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Rarity</p>
+            <p class="field-value{% if rarity_slug(card.rarity) == 'mythic' %} rarity-text-mythic{% endif %}">{{ card.rarity }}</p>
+        </div>
         {% if card.power or card.toughness %}
-        <dt>P/T</dt><dd>{{ card.power or "—" }} / {{ card.toughness or "—" }}</dd>
+        <div class="field">
+            <p class="field-label">Power / Toughness</p>
+            <p class="field-value">{{ card.power or "—" }} / {{ card.toughness or "—" }}</p>
+        </div>
         {% endif %}
         {% if card.starting_loyalty is not none %}
-        <dt>Starting loyalty</dt><dd>{{ card.starting_loyalty }}</dd>
+        <div class="field">
+            <p class="field-label">Starting loyalty</p>
+            <p class="field-value">{{ card.starting_loyalty }}</p>
+        </div>
         {% endif %}
-        <dt>Rarity</dt><dd>{{ card.rarity }}</dd>
-        <dt>Power level</dt><dd>{{ card.power_level if card.power_level is not none else "—" }}</dd>
-        <dt class="additional-info">Design type</dt><dd class="additional-info">{{ card.design_type }}</dd>
-        <dt class="additional-info">Sets</dt><dd class="additional-info">{{ card.sets|join(", ") or "—" }}</dd>
-        <dt class="additional-info">Alt arts</dt><dd class="additional-info">{{ card.alt_arts|join(", ") or "—" }}</dd>
+        <div class="field">
+            <p class="field-label">Power level</p>
+            <p class="field-value">{{ card.power_level if card.power_level is not none else "—" }}</p>
+        </div>
+        <div class="field additional-info">
+            <p class="field-label">Design type</p>
+            <p class="field-value">{{ card.design_type }}</p>
+        </div>
+        <div class="field additional-info">
+            <p class="field-label">Sets</p>
+            <p class="field-value">{{ card.sets|join(", ") or "—" }}</p>
+        </div>
+        <div class="field additional-info">
+            <p class="field-label">Alt arts</p>
+            <p class="field-value">{{ card.alt_arts|join(", ") or "—" }}</p>
+        </div>
         {% if card.alias %}
-        <dt class="additional-info">Alias</dt><dd class="additional-info">{{ card.alias }}</dd>
+        <div class="field additional-info">
+            <p class="field-label">Alias</p>
+            <p class="field-value">{{ card.alias }}</p>
+        </div>
         {% endif %}
-        <dt>Related cards</dt>
-        <dd>
-            {% if related %}
-                {% for r in related %}{% if r.href %}<a href="{{ r.href }}">{{ r.name }}</a>{% else %}{{ r.name }} <small>(missing)</small>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
-            {% else %}—{% endif %}
-        </dd>
-    </dl>
+        <div class="field wide">
+            <p class="field-label">Related cards</p>
+            <p class="field-value">
+                {% if related %}
+                    {% for r in related %}{% if r.href %}<a href="{{ r.href }}">{{ r.name }}</a>{% else %}{{ r.name }} <small>(missing)</small>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+                {% else %}<span class="missing">—</span>{% endif %}
+            </p>
+        </div>
+    </div>
+
     <h4>Rule text</h4>
     {% if card.rule_text %}
         <div class="rule-text">{{ card.rule_text | render_rule_text(keyword_reminders, card_facts) }}</div>
     {% else %}
-        <p>—</p>
+        <p><span class="missing">—</span></p>
     {% endif %}
+
     {% if card.flavor_text %}
         <h4>Flavor</h4>
         <div class="rule-text"><em>{{ card.flavor_text | render_text }}</em></div>
     {% endif %}
+
     {% if keywords %}
     <h4>Keywords</h4>
     <ul>
@@ -51,18 +98,21 @@
         <li>
             <a href="/keywords/{{ kw.id }}">{{ kw.name | render_match }}</a>
             {% if kw.is_stub %}
-                {% if kw.reminder %}<small>(no definition yet)</small>
-                {% else %}<small>(stub)</small>{% endif %}
+                {% if kw.reminder %}<small class="muted">(no definition yet)</small>
+                {% else %}<small class="muted">(stub)</small>{% endif %}
             {% endif %}
         </li>
         {% endfor %}
     </ul>
     {% endif %}
+
     {% if card.notes %}
         <h4>Notes</h4>
         <pre style="white-space: pre-wrap;">{{ card.notes }}</pre>
     {% endif %}
 </article>
-<a href="/cards" role="button" class="secondary">Back</a>
-<a href="/cards/{{ card.id }}/edit" role="button">Edit</a>
+<div class="action-row">
+    <a href="/cards" role="button" class="secondary">Back</a>
+    <a href="/cards/{{ card.id }}/edit" role="button">Edit</a>
+</div>
 {% endblock %}

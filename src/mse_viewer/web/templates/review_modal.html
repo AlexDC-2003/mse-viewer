@@ -2,25 +2,33 @@
 {% block title %}Review — mse-viewer{% endblock %}
 {% block content %}
 {% if preview is none %}
-    <p>Nothing to review.</p>
+    <p class="muted">Nothing to review.</p>
 {% else %}
 <article>
     <header>
-        <hgroup>
-            <h2>Review card {{ index }} of {{ total }}: {{ preview.face.name }}</h2>
-            <p>Routing: <strong>{{ preview.route }}</strong> · Proposed identity: <code>{{ preview.proposed_identity }}</code></p>
-        </hgroup>
+        <div class="detail-header">
+            <div class="title-block">
+                <h2>Review card {{ index }} of {{ total }}: {{ preview.face.name }}</h2>
+                <p class="type-line">Routing: <strong>{{ preview.route }}</strong> · Proposed identity: <code>{{ preview.proposed_identity }}</code></p>
+            </div>
+            <div class="chip-row">
+                <span class="chip">{{ preview.route }}</span>
+                {% if preview.face.notes and preview.face.notes.status_printed %}
+                    <span class="chip chip-printed">Printed</span>
+                {% endif %}
+            </div>
+        </div>
     </header>
 
     {% if warnings %}
-    <section>
-        <h4>Warnings</h4>
+    <div class="warn-tile">
+        <strong>Warnings</strong>
         <ul>
         {% for w in warnings %}
             <li><strong>{{ w.kind }}</strong> — {{ w.message }}</li>
         {% endfor %}
         </ul>
-    </section>
+    </div>
     {% endif %}
 
     {# Side-by-side diff for identity_conflict / modifies_printed warnings. #}
@@ -54,35 +62,38 @@
     <section class="grid">
         <div>
             <h4>Parsed values</h4>
-            <dl>
-                <dt>card_type</dt><dd>{{ preview.face.super_type or "—" }}</dd>
-                <dt>card_subtype</dt><dd>{{ preview.face.sub_type or "—" }}</dd>
-                <dt>casting_cost</dt><dd>{{ preview.face.casting_cost | render_cost or "—" }}</dd>
-                <dt>P/T</dt><dd>{{ preview.face.power or "—" }} / {{ preview.face.toughness or "—" }}</dd>
-                <dt>rarity</dt>
-                <dd>
-                    {% if preview.face.rarity_missing %}
-                        <span class="missing">Missing (Presumed common)</span>
-                    {% else %}
-                        {{ preview.face.rarity }}
-                    {% endif %}
-                </dd>
-                <dt>stylesheet</dt><dd>{{ preview.face.stylesheet or "—" }}</dd>
-                <dt>colors</dt><dd>{{ preview.colors | render_colors }}</dd>
-                <dt>design_type (auto)</dt>
-                <dd>
-                    {% if preview.design_type.value %}{{ preview.design_type.value }}
-                    {% else %}<em>needs user input</em>{% endif %}
-                </dd>
-                <dt>keywords (refs)</dt>
-                <dd>
-                    {% if preview.face.keyword_refs %}
-                        {% for ref in preview.face.keyword_refs %}{{ ref|capitalize }}{% if not loop.last %}, {% endif %}{% endfor %}
-                    {% else %}—{% endif %}
-                </dd>
-                <dt>printed?</dt><dd>{{ "yes" if preview.face.notes.status_printed else "no" }}</dd>
-                <dt>related</dt><dd>{{ preview.face.related_from_notes|join(", ") or "—" }}</dd>
-            </dl>
+            <div class="detail-grid">
+                <div class="field"><p class="field-label">card_type</p><p class="field-value">{{ preview.face.super_type or "—" }}</p></div>
+                <div class="field"><p class="field-label">card_subtype</p><p class="field-value">{{ preview.face.sub_type or "—" }}</p></div>
+                <div class="field"><p class="field-label">casting_cost</p><p class="field-value">{{ preview.face.casting_cost | render_cost or "—" }}</p></div>
+                <div class="field"><p class="field-label">P / T</p><p class="field-value">{{ preview.face.power or "—" }} / {{ preview.face.toughness or "—" }}</p></div>
+                <div class="field"><p class="field-label">rarity</p>
+                    <p class="field-value">
+                        {% if preview.face.rarity_missing %}
+                            <span class="missing">Missing (Presumed common)</span>
+                        {% else %}
+                            {{ preview.face.rarity }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="field"><p class="field-label">stylesheet</p><p class="field-value">{{ preview.face.stylesheet or "—" }}</p></div>
+                <div class="field"><p class="field-label">colors</p><p class="field-value">{{ preview.colors | render_colors }}</p></div>
+                <div class="field"><p class="field-label">design_type (auto)</p>
+                    <p class="field-value">
+                        {% if preview.design_type.value %}{{ preview.design_type.value }}
+                        {% else %}<em>needs user input</em>{% endif %}
+                    </p>
+                </div>
+                <div class="field wide"><p class="field-label">keywords (refs)</p>
+                    <p class="field-value">
+                        {% if preview.face.keyword_refs %}
+                            {% for ref in preview.face.keyword_refs %}{{ ref|capitalize }}{% if not loop.last %}, {% endif %}{% endfor %}
+                        {% else %}—{% endif %}
+                    </p>
+                </div>
+                <div class="field"><p class="field-label">printed?</p><p class="field-value">{{ "yes" if preview.face.notes.status_printed else "no" }}</p></div>
+                <div class="field"><p class="field-label">related</p><p class="field-value">{{ preview.face.related_from_notes|join(", ") or "—" }}</p></div>
+            </div>
         </div>
         <div>
             <h4>Rule text</h4>
@@ -95,76 +106,76 @@
     </section>
 
     <form action="/review/{{ session.id }}/commit" method="post">
-        <section>
-            <h4>Decisions</h4>
+        <h4>Decisions</h4>
 
-            {% set ns = namespace(has_conflict=false, has_rarity_special=false) %}
-            {% for w in warnings %}
-                {% if w.kind == "identity_conflict" %}{% set ns.has_conflict = true %}{% endif %}
-                {% if w.kind == "rarity_special" %}{% set ns.has_rarity_special = true %}{% endif %}
-            {% endfor %}
+        {% set ns = namespace(has_conflict=false, has_rarity_special=false) %}
+        {% for w in warnings %}
+            {% if w.kind == "identity_conflict" %}{% set ns.has_conflict = true %}{% endif %}
+            {% if w.kind == "rarity_special" %}{% set ns.has_rarity_special = true %}{% endif %}
+        {% endfor %}
 
-            {% if ns.has_rarity_special %}
-            <fieldset>
-                <legend>Rarity is 'special' — choose database</legend>
-                <label><input type="radio" name="route_override" value="token" checked> Save in Tokens DB</label>
-                <label><input type="radio" name="route_override" value="card"> Save in Cards DB</label>
-            </fieldset>
+        {% if ns.has_rarity_special %}
+        <fieldset>
+            <legend>Rarity is 'special' — choose database</legend>
+            <label><input type="radio" name="route_override" value="token" checked> Save in Tokens DB</label>
+            <label><input type="radio" name="route_override" value="card"> Save in Cards DB</label>
+        </fieldset>
+        {% endif %}
+
+        {% if ns.has_conflict %}
+        <fieldset>
+            <legend>Identity conflict</legend>
+            <label><input type="radio" name="collision_resolution" value="update" checked> Update existing record</label>
+            <label><input type="radio" name="collision_resolution" value="alternate"> Add as alternate variant</label>
+            <label>
+                <input type="radio" name="collision_resolution" value="rename">
+                Save as <em>"{{ preview.proposed_identity }} 2"</em>
+            </label>
+            <label>Alternate-variant label
+                <input name="alt_art_label" placeholder="e.g. commander alternate, 6x art">
+            </label>
+        </fieldset>
+        {% endif %}
+
+        <fieldset>
+            <legend>Override fields</legend>
+            {% if preview.design_type.needs_user %}
+            <label>Design type (required to accept)
+                <input name="design_type" list="dl_design_types" required placeholder="e.g. Colorpushed-experimental">
+            </label>
+            {% else %}
+            <label>Design type
+                <input name="design_type" list="dl_design_types" value="{{ preview.design_type.value }}">
+            </label>
             {% endif %}
-
-            {% if ns.has_conflict %}
-            <fieldset>
-                <legend>Identity conflict</legend>
-                <label><input type="radio" name="collision_resolution" value="update" checked> Update existing record</label>
-                <label><input type="radio" name="collision_resolution" value="alternate"> Add as alternate variant</label>
-                <label>
-                    <input type="radio" name="collision_resolution" value="rename">
-                    Save as <em>"{{ preview.proposed_identity }} 2"</em>
-                </label>
-                <label>Alternate-variant label
-                    <input name="alt_art_label" placeholder="e.g. commander alternate, 6x art">
-                </label>
-            </fieldset>
-            {% endif %}
-
-            <fieldset>
-                <legend>Override fields</legend>
-                {% if preview.design_type.needs_user %}
-                <label>Design type (required to accept)
-                    <input name="design_type" list="dl_design_types" required placeholder="e.g. Colorpushed-experimental">
-                </label>
-                {% else %}
-                <label>Design type
-                    <input name="design_type" list="dl_design_types" value="{{ preview.design_type.value }}">
-                </label>
-                {% endif %}
+            <div class="grid">
                 <label>Rarity
                     <input name="rarity" list="dl_rarities" value="{{ preview.face.rarity or 'common' }}">
                 </label>
                 <label>Colors (comma-separated)
                     <input name="colors" list="dl_colors" value="{{ preview.colors|join(', ') }}">
                 </label>
-                <datalist id="dl_design_types">
-                    {% for v in distinct_design_types %}<option value="{{ v }}">{% endfor %}
-                </datalist>
-                <datalist id="dl_rarities">
-                    {% for v in distinct_rarities %}<option value="{{ v }}">{% endfor %}
-                </datalist>
-                <datalist id="dl_colors">
-                    {% for v in distinct_colors %}<option value="{{ v }}">{% endfor %}
-                </datalist>
-            </fieldset>
-        </section>
+            </div>
+            <datalist id="dl_design_types">
+                {% for v in distinct_design_types %}<option value="{{ v }}">{% endfor %}
+            </datalist>
+            <datalist id="dl_rarities">
+                {% for v in distinct_rarities %}<option value="{{ v }}">{% endfor %}
+            </datalist>
+            <datalist id="dl_colors">
+                {% for v in distinct_colors %}<option value="{{ v }}">{% endfor %}
+            </datalist>
+        </fieldset>
 
         <footer>
-            <div class="grid">
+            <div class="action-row">
                 <button type="submit" name="action" value="accept">Accept &amp; next</button>
                 <button type="submit" name="action" value="reject" class="secondary" formnovalidate>Reject &amp; log</button>
             </div>
         </footer>
     </form>
     <form action="/review/{{ session.id }}/discard" method="post" onsubmit="return confirm('Discard ingest session?')">
-        <button type="submit" class="contrast">Discard session</button>
+        <div class="action-row"><button type="submit" class="contrast">Discard session</button></div>
     </form>
 </article>
 {% endif %}

@@ -90,8 +90,8 @@ These are large, touch the data model, and should land together rather than incr
 
 ## F. UI polish
 
-- [ ] **Evolution / Hero row hue + tag chip.** From `phase1_prompt_2.md §3` and deferred through every Phase 1.5 prompt. Light-purple background for Evolution rows, light-gold for Hero. Stronger-hued tag chip in the header next to the type line.
-- [ ] **Mana-symbol rendering.** Storage is Scryfall-style `{W}{2/U}{X}`; render glyphs instead of literal braces via CSS / SVG sprites.
+- ~~**Evolution / Hero row hue + tag chip.**~~ Landed in Phase 2.0 prompt 1 — `is_evolution` / `is_hero` template globals + `.row-evolution` / `.row-hero` row hue classes + `.chip-evolution` / `.chip-hero` chips in detail & list views.
+- ~~**Mana-symbol rendering.**~~ Landed in Phase 2.0 prompt 1 — `_inject_mana_symbols` post-processes any `{X}` token through `render_text` / `render_cost`; CSS glyphs cover W U B R G C O L P K E N S T X Y Z, two-color hybrids, numeric hybrids (2/W…), phyrexian hybrids, and three-color hybrids.
 - [ ] **Color chips in card lists.** From `phase1_prompt_2.md §3`.
 - [ ] **Inline rule_text keyword links.** When `<kw-N>` referred to a known keyword, link to `/keywords/{id}` from the card detail page. From `phase1_prompt_2.md §3`.
 - [ ] **HTMX on the review modal.** Each accept/reject is a full page navigation today. HTMX would let us lift "next/previous" to keys. From `phase1_prompt_2.md §3`.
@@ -99,7 +99,7 @@ These are large, touch the data model, and should land together rather than incr
 - [ ] **Datalist multi-select for the colors field.** From `phase1.5_prompt2.md` — current `<datalist>` only suggests against the whole input. A chip-based multi-select would replace the comma-separated string.
 - [ ] **Additional-info toggle resting state.** Phase 1.6 prompt 4 item 5 landed (off by default). Revisit: is there a column the user always wants on?
 - [ ] **Pretty diff viewer with deepdiff's structured (tree) mode.** Phase 1.6 prompt 2 item 3 landed a flat per-field table. Tree mode would handle JSONB list-set semantics better.
-- [ ] **Mark printed cards visually.** From `init_prompt_5` — the `printed` flag is read on parse but the UI doesn't surface it as a chip / badge on detail and list views.
+- ~~**Mark printed cards visually.**~~ Landed in Phase 2.0 prompt 1 — `.chip-printed` on the detail page header, `.printed-tick` icon in the cards list "Printed" column.
 
 ---
 
@@ -125,6 +125,7 @@ These are large, touch the data model, and should land together rather than incr
 
 ## Completed (kept for audit)
 
+- ~~Phase 2.0 prompt 1 — UI uplift, mana glyphs, Hero / Evolution / rarity chips, printed indicator.~~ Landed in [prompt1 response](../responses/Phase%202.0%20Prompts/phase2_prompt1.md). No migration.
 - ~~Phase 1.6 prompt 1 — Planeswalker / Emblem / Saga / Leyline frame parsing.~~ Landed in [prompt1 response](../responses/Phase%201.6%20Prompts/phase1.6_prompt1.md). Migration `0003` (cards.starting_loyalty).
 - ~~Phase 1.6 prompt 2 — bug-bash + deck ingest + diff viewer + HTMX log + CRUD + stub dashboard.~~ Landed in [prompt2 response](../responses/Phase%201.6%20Prompts/phase1.6_prompt2.md).
 - ~~Phase 1.6 prompt 3 — Bugs 1–13 except deferred; `abilities` + `tokens.sets` dropped; keyword reject list.~~ Landed in [prompt3 response](../responses/Phase%201.6%20Prompts/phase1.6_prompt3.md). Migration `0004`.

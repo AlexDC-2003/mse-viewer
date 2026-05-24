@@ -384,6 +384,19 @@ def render_casting_cost(value: str | None) -> str:
     return "".join(f"({t})" if "/" in t else t for t in tokens)
 
 
+def casting_cost_to_braces(value: str | None) -> str:
+    """Render a raw MSE casting_cost as Scryfall-style ``{...}`` slots.
+
+    Used by the templating layer so the existing mana-glyph injector (which
+    looks for ``{X}`` tokens in escaped text) can render the same glyphs on
+    cost fields as it does on inline cost references inside rule_text.
+    """
+    if not value:
+        return ""
+    tokens = _tokenize_mana_string(value)
+    return "".join(f"{{{t}}}" for t in tokens)
+
+
 _RE_ATOM_PARAM_DISPLAY = re.compile(r"<atom-param>([^<]*)</atom-param>", re.IGNORECASE)
 
 
