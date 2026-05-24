@@ -4,15 +4,15 @@
 <h1>{% if mode == "deck" %}Upload a deck file{% else %}Upload a set file{% endif %}</h1>
 
 {% if error %}
-<article class="warn">
+<div class="warn-tile">
     <strong>Could not start ingest:</strong> {{ error }}
-</article>
+</div>
 {% endif %}
 
-<nav>
-    <a href="/upload?mode=set" {% if mode != "deck" %}role="button"{% else %}role="button" class="secondary"{% endif %}>Set</a>
-    <a href="/upload?mode=deck" {% if mode == "deck" %}role="button"{% else %}role="button" class="secondary"{% endif %}>Deck</a>
-</nav>
+<div class="action-row">
+    <a href="/upload?mode=set" role="button" {% if mode == "deck" %}class="secondary"{% endif %}>Set</a>
+    <a href="/upload?mode=deck" role="button" {% if mode != "deck" %}class="secondary"{% endif %}>Deck</a>
+</div>
 
 <form action="/upload" method="post" enctype="multipart/form-data">
     <input type="hidden" name="mode" value="{{ mode }}">
@@ -36,8 +36,10 @@
             <label>Theme <input name="deck_theme"></label>
             <label>Archetype <input name="deck_archetype"></label>
         </div>
-        <label>Owners (csv) <input name="deck_owners"></label>
-        <label>Colors (csv) <input name="deck_colors"></label>
+        <div class="grid">
+            <label>Owners (csv) <input name="deck_owners"></label>
+            <label>Colors (csv) <input name="deck_colors"></label>
+        </div>
     </fieldset>
     <fieldset id="commander-fields" style="display: none;">
         <legend>Commander / tester fields</legend>
@@ -81,8 +83,6 @@
                 if (commander) commander.style.display = show ? "" : "none";
                 if (size) {
                     var expected = String(defaultSizeFor(lastFormat));
-                    // Only auto-update when the input still holds the previous
-                    // default — don't squash a value the user actually typed.
                     if (size.value === expected) {
                         size.value = defaultSizeFor(v);
                     }
@@ -113,7 +113,7 @@
     <fieldset>
         <legend>Source</legend>
         <div class="field">
-            <span class="field-label">Plaintext file (optional)</span>
+            <span class="field-label-block">Plaintext file (optional)</span>
             <input type="file" name="file" accept=".txt,.set,.mse-set,*" id="set-file">
             <small>Click the file picker only — clicking elsewhere won't reset your selection.</small>
         </div>
@@ -124,6 +124,8 @@
         <small>Quantities are encoded as repeated <code>card:</code> blocks with the same name (a 4-of Zap = four blocks named Zap). The deck parser collapses repeats into <code>quantity</code>.</small>
         {% endif %}
     </fieldset>
-    <button type="submit">{% if mode == "deck" %}Parse and review deck{% else %}Parse and review{% endif %}</button>
+    <div class="action-row">
+        <button type="submit">{% if mode == "deck" %}Parse and review deck{% else %}Parse and review{% endif %}</button>
+    </div>
 </form>
 {% endblock %}

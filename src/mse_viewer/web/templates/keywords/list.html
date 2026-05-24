@@ -2,28 +2,31 @@
 {% block title %}Keywords — mse-viewer{% endblock %}
 {% block content %}
 <h1>Keywords <small>({{ keywords|length }})</small></h1>
-<form action="/keywords" method="get">
-    <input name="q" value="{{ q }}" placeholder="Search by name, reminder, or rules…">
-    <button type="submit">Search</button>
-    <a href="/keywords/stubs" role="button" class="secondary">Stubs needing definition</a>
-    <a href="/keywords/new" role="button" class="secondary">New</a>
-</form>
+<div class="toolbar">
+    <form action="/keywords" method="get" role="search">
+        <input class="search-bar" name="q" value="{{ q }}" placeholder="Search by name, reminder, or rules…">
+        <button type="submit">Search</button>
+    </form>
+    <span class="toolbar-spacer"></span>
+    <a href="/keywords/stubs" role="button" class="secondary">Stubs</a>
+    <a href="/keywords/new" role="button">New keyword</a>
+</div>
 {% if keywords %}
 <table>
-    <thead><tr><th>Match</th><th>Source</th><th>Params</th><th>Pseudo?</th><th>Stub?</th></tr></thead>
+    <thead><tr><th>Match</th><th>Source</th><th>Params</th><th class="cell-center">Pseudo</th><th class="cell-center">Stub</th></tr></thead>
     <tbody>
     {% for k in keywords %}
         <tr>
-            <td><a href="/keywords/{{ k.id }}">{{ k.name | render_match }}</a></td>
-            <td>{{ k.source_keyword_field or "—" }}</td>
-            <td>{{ k.accepted_parameters|join(", ") }}</td>
-            <td>{{ "yes" if k.pseudo_keyword else "" }}</td>
-            <td>{{ "yes" if k.is_stub else "" }}</td>
+            <td><a href="/keywords/{{ k.id }}"><strong>{{ k.name | render_match }}</strong></a></td>
+            <td><small>{{ k.source_keyword_field or "—" }}</small></td>
+            <td><small>{{ k.accepted_parameters|join(", ") }}</small></td>
+            <td class="cell-center">{% if k.pseudo_keyword %}<span class="printed-tick">✓</span>{% endif %}</td>
+            <td class="cell-center">{% if k.is_stub %}<span class="chip chip-rarity-uncommon">stub</span>{% endif %}</td>
         </tr>
     {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p>No keywords yet.</p>
+<p class="muted">No keywords yet.</p>
 {% endif %}
 {% endblock %}

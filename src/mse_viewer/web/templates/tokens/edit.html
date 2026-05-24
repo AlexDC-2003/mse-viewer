@@ -5,18 +5,22 @@
 <form action="{{ action }}" method="post">
     <fieldset>
         <legend>Identity</legend>
-        <label>Name (identity, unique)
-            <input name="name" required value="{{ token.name if token else '' }}">
-        </label>
-        <label>Display name
-            <input name="display_name" value="{{ token.display_name if token else '' }}">
-        </label>
-        <label>Card type
-            <input name="card_type" value="{{ token.card_type if token else '' }}">
-        </label>
-        <label>Card subtype
-            <input name="card_subtype" value="{{ token.card_subtype or '' if token else '' }}">
-        </label>
+        <div class="grid">
+            <label>Name (identity, unique)
+                <input name="name" required value="{{ token.name if token else '' }}">
+            </label>
+            <label>Display name
+                <input name="display_name" value="{{ token.display_name if token else '' }}">
+            </label>
+        </div>
+        <div class="grid">
+            <label>Card type
+                <input name="card_type" value="{{ token.card_type if token else '' }}">
+            </label>
+            <label>Card subtype
+                <input name="card_subtype" value="{{ token.card_subtype or '' if token else '' }}">
+            </label>
+        </div>
         <label>Alias
             <input name="alias" value="{{ token.alias or '' if token else '' }}">
         </label>
@@ -45,16 +49,18 @@
             <input name="keyword_names" value="{{ keyword_names_value or '' }}">
         </label>
     </fieldset>
-    <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
-    {% if not is_new %}
-        <a href="/tokens/{{ token.id }}" role="button" class="secondary">Cancel</a>
-    {% else %}
-        <a href="/tokens" role="button" class="secondary">Cancel</a>
-    {% endif %}
+    <div class="action-row">
+        <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
+        {% if not is_new %}
+            <a href="/tokens/{{ token.id }}" role="button" class="secondary">Cancel</a>
+        {% else %}
+            <a href="/tokens" role="button" class="secondary">Cancel</a>
+        {% endif %}
+    </div>
 </form>
 {% if not is_new %}
 <form action="/tokens/{{ token.id }}/delete" method="post" onsubmit="return confirm('Delete this token?')">
-    <button type="submit" class="contrast">Delete</button>
+    <div class="action-row"><button type="submit" class="contrast">Delete</button></div>
 </form>
 {% endif %}
 {% endblock %}

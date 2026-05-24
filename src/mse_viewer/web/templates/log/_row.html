@@ -1,12 +1,19 @@
 {# Single log entry row — included by list.html and returned by HTMX
    transitions so the row can swap in place without a full reload. #}
 <tr id="entry-{{ e.id }}">
-    <td><small>{{ e.created_at.strftime("%Y-%m-%d %H:%M") }}</small></td>
-    <td>{{ e.kind.value }}</td>
-    <td>{{ e.state.value }}</td>
+    <td><small class="muted">{{ e.created_at.strftime("%Y-%m-%d %H:%M") }}</small></td>
+    <td><span class="chip">{{ e.kind.value }}</span></td>
+    <td>
+        {% set st = e.state.value %}
+        <span class="chip
+            {% if st == 'open' or st == 'unread' %}chip-rarity-rare
+            {% elif st == 'resolved' or st == 'completed' %}chip-rarity-uncommon
+            {% elif st == 'standby' or st == 'issued' %}chip-rarity-special
+            {% endif %}">{{ st }}</span>
+    </td>
     <td>
         <strong>{{ e.title }}</strong>
-        {% if e.body %}<br><small>{{ e.body }}</small>{% endif %}
+        {% if e.body %}<br><small class="muted">{{ e.body }}</small>{% endif %}
     </td>
     <td>
         {% if e.state.value == "open" %}

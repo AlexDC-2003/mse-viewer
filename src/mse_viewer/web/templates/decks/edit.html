@@ -5,12 +5,14 @@
 <form action="{{ action }}" method="post">
     <fieldset>
         <legend>Identity</legend>
-        <label>Name (unique)
-            <input name="name" required value="{{ deck.name if deck else '' }}">
-        </label>
-        <label>Code
-            <input name="code" value="{{ deck.code or '' if deck else '' }}">
-        </label>
+        <div class="grid">
+            <label>Name (unique)
+                <input name="name" required value="{{ deck.name if deck else '' }}">
+            </label>
+            <label>Code
+                <input name="code" value="{{ deck.code or '' if deck else '' }}">
+            </label>
+        </div>
         <div class="grid">
             <label>Format
                 <select name="format" id="deck-format-select">
@@ -26,8 +28,10 @@
             <label>Theme <input name="theme" value="{{ deck.theme or '' if deck else '' }}"></label>
             <label>Archetype <input name="archetype" value="{{ deck.archetype or '' if deck else '' }}"></label>
         </div>
-        <label>Owners (csv) <input name="owners" value="{{ deck.owners|join(', ') if deck else '' }}"></label>
-        <label>Colors (csv) <input name="colors" value="{{ deck.colors|join(', ') if deck else '' }}"></label>
+        <div class="grid">
+            <label>Owners (csv) <input name="owners" value="{{ deck.owners|join(', ') if deck else '' }}"></label>
+            <label>Colors (csv) <input name="colors" value="{{ deck.colors|join(', ') if deck else '' }}"></label>
+        </div>
     </fieldset>
     <fieldset id="commander-fields" style="display: none;">
         <legend>Commander / tester fields</legend>
@@ -89,16 +93,18 @@
             {% if tokens|length > 50 %}… <a href="/tokens">browse</a>{% endif %}
         </small>
     </fieldset>
-    <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
-    {% if not is_new %}
-        <a href="/decks/{{ deck.id }}" role="button" class="secondary">Cancel</a>
-    {% else %}
-        <a href="/decks" role="button" class="secondary">Cancel</a>
-    {% endif %}
+    <div class="action-row">
+        <button type="submit">{% if is_new %}Create{% else %}Save{% endif %}</button>
+        {% if not is_new %}
+            <a href="/decks/{{ deck.id }}" role="button" class="secondary">Cancel</a>
+        {% else %}
+            <a href="/decks" role="button" class="secondary">Cancel</a>
+        {% endif %}
+    </div>
 </form>
 {% if not is_new %}
 <form action="/decks/{{ deck.id }}/delete" method="post" onsubmit="return confirm('Delete this deck?')">
-    <button type="submit" class="contrast">Delete</button>
+    <div class="action-row"><button type="submit" class="contrast">Delete</button></div>
 </form>
 {% endif %}
 {% endblock %}

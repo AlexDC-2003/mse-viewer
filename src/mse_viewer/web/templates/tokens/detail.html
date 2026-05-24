@@ -1,37 +1,71 @@
 {% extends "base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}{{ token.name }} — mse-viewer{% endblock %}
 {% block content %}
-<article>
+<article class="{{ row_hue_class(token) }}">
     <header>
-        <hgroup>
-            <h2>{{ token.name }}</h2>
-            <p>{{ token.card_type }}{% if token.card_subtype %} — {{ token.card_subtype }}{% endif %}</p>
-        </hgroup>
+        <div class="detail-header">
+            <div class="title-block">
+                <h2 class="{{ rarity_text_class(None, is_token=True) }}">{{ token.name }}</h2>
+                <p class="type-line">{{ token.card_type }}{% if token.card_subtype %} — {{ token.card_subtype }}{% endif %}</p>
+            </div>
+            <div class="chip-row">
+                {{ ui.card_chips(token, is_token=True) }}
+            </div>
+        </div>
     </header>
-    <dl>
-        <dt>Display name</dt><dd>{{ token.display_name }}</dd>
-        <dt>Cost</dt><dd>{{ token.casting_cost | render_cost or "—" }}</dd>
-        <dt>Colors</dt><dd>{{ token.colors | render_colors }}</dd>
+
+    <div class="detail-grid">
+        <div class="field">
+            <p class="field-label">Display name</p>
+            <p class="field-value {{ rarity_text_class(None, is_token=true) }}">{{ token.display_name }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Cost</p>
+            <p class="field-value">{{ token.casting_cost | render_cost or "—" }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Colors</p>
+            <p class="field-value">{{ token.colors | render_colors }}</p>
+        </div>
         {% if token.power or token.toughness %}
-        <dt>P/T</dt><dd>{{ token.power or "—" }} / {{ token.toughness or "—" }}</dd>
+        <div class="field">
+            <p class="field-label">Power / Toughness</p>
+            <p class="field-value">{{ token.power or "—" }} / {{ token.toughness or "—" }}</p>
+        </div>
         {% endif %}
-        <dt class="additional-info">Alt arts</dt><dd class="additional-info">{{ token.alt_arts|join(", ") or "—" }}</dd>
+        <div class="field additional-info">
+            <p class="field-label">Alt arts</p>
+            <p class="field-value">{{ token.alt_arts|join(", ") or "—" }}</p>
+        </div>
         {% if token.alias %}
-        <dt class="additional-info">Alias</dt><dd class="additional-info">{{ token.alias }}</dd>
+        <div class="field additional-info">
+            <p class="field-label">Alias</p>
+            <p class="field-value">{{ token.alias }}</p>
+        </div>
         {% endif %}
-        <dt>Related cards</dt>
-        <dd>
-            {% if related %}
-                {% for r in related %}{% if r.href %}<a href="{{ r.href }}">{{ r.name }}</a>{% else %}{{ r.name }} <small>(missing)</small>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
-            {% else %}—{% endif %}
-        </dd>
-    </dl>
+        <div class="field wide">
+            <p class="field-label">Related cards</p>
+            <p class="field-value">
+                {% if related %}
+                    {% for r in related %}{% if r.href %}<a href="{{ r.href }}">{{ r.name }}</a>{% else %}{{ r.name }} <small>(missing)</small>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+                {% else %}<span class="missing">—</span>{% endif %}
+            </p>
+        </div>
+    </div>
+
     <h4>Rule text</h4>
     {% if token.rule_text %}
         <div class="rule-text">{{ token.rule_text | render_rule_text(keyword_reminders, card_facts) }}</div>
     {% else %}
-        <p>—</p>
+        <p><span class="missing">—</span></p>
     {% endif %}
+
+    {% if token.flavor_text %}
+        <h4>Flavor</h4>
+        <div class="rule-text"><em>{{ token.flavor_text | render_text }}</em></div>
+    {% endif %}
+
     {% if keywords %}
     <h4>Keywords</h4>
     <ul>
@@ -39,14 +73,21 @@
         <li>
             <a href="/keywords/{{ kw.id }}">{{ kw.name | render_match }}</a>
             {% if kw.is_stub %}
-                {% if kw.reminder %}<small>(no definition yet)</small>
-                {% else %}<small>(stub)</small>{% endif %}
+                {% if kw.reminder %}<small class="muted">(no definition yet)</small>
+                {% else %}<small class="muted">(stub)</small>{% endif %}
             {% endif %}
         </li>
         {% endfor %}
     </ul>
     {% endif %}
+
+    {% if token.notes %}
+        <h4>Notes</h4>
+        <pre style="white-space: pre-wrap;">{{ token.notes }}</pre>
+    {% endif %}
 </article>
-<a href="/tokens" role="button" class="secondary">Back</a>
-<a href="/tokens/{{ token.id }}/edit" role="button">Edit</a>
+<div class="action-row">
+    <a href="/tokens" role="button" class="secondary">Back</a>
+    <a href="/tokens/{{ token.id }}/edit" role="button">Edit</a>
+</div>
 {% endblock %}

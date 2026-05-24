@@ -1,12 +1,17 @@
 {% extends "base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}Cards — mse-viewer{% endblock %}
 {% block content %}
 <h1>Cards <small>({{ cards|length }})</small></h1>
-<form action="/cards" method="get">
-    <input name="q" value="{{ q }}" placeholder="Search by name, rule text, or flavor…">
-    <button type="submit">Search</button>
-    <a href="/cards/new" role="button" class="secondary">New card</a>
-</form>
+<div class="toolbar">
+    <form action="/cards" method="get" role="search">
+        <input class="search-bar" name="q" value="{{ q }}" placeholder="Search by name, rule text, or flavor…">
+        <button type="submit">Search</button>
+    </form>
+    <span class="toolbar-spacer"></span>
+    <a href="/cards/advanced" role="button" class="secondary">Advanced search</a>
+    <a href="/cards/new" role="button">New card</a>
+</div>
 {% if cards %}
 <table>
     <thead>
@@ -14,35 +19,38 @@
             <th>Name</th>
             <th>Type</th>
             <th>Cost</th>
-            <th>Colors</th>
             <th>P/T</th>
             <th>Rarity</th>
-            <th>PWL</th>
             <th class="additional-info">Sets</th>
-            <th>Printed</th>
+            <th class="cell-center">Printed</th>
             <th>Rule text</th>
+            <th class="cell-center">PWL</th>
         </tr>
     </thead>
     <tbody>
     {% for c in cards %}
-        <tr>
-            <td><a href="/cards/{{ c.id }}">{{ c.name }}</a></td>
-            <td>{{ c.card_type }}{% if c.card_subtype %} — {{ c.card_subtype }}{% endif %}</td>
-            <td>{{ c.casting_cost | render_cost }}</td>
-            <td>{{ c.colors | render_colors }}</td>
+        <tr class="{{ row_hue_class(c) }}">
             <td>
+                <a href="/cards/{{ c.id }}" class="{{ rarity_text_class(c.rarity) }}"><strong>{{ c.name }}</strong></a>
+                {% if is_evolution(c) %}<span class="chip chip-evolution">Evo</span>{% endif %}
+                {% if is_hero(c) %}<span class="chip chip-hero">Hero</span>{% endif %}
+                {% if is_legendary(c) %}<span class="chip chip-legendary">Leg</span>{% endif %}
+            </td>
+            <td><small>{{ c.card_type }}{% if c.card_subtype %} — {{ c.card_subtype }}{% endif %}</small></td>
+            <td class="cell-tight">{{ c.casting_cost | render_cost }}</td>
+            <td class="cell-tight">
                 {% if c.power or c.toughness %}{{ c.power or "" }}/{{ c.toughness or "" }}{% endif %}
             </td>
-            <td>{{ c.rarity }}</td>
-            <td>{{ c.power_level if c.power_level is not none else "" }}</td>
-            <td class="additional-info">{{ c.sets|join(", ") }}</td>
-            <td>{{ "yes" if c.printed else "" }}</td>
+            <td><span class="{{ rarity_chip_class(c.rarity) }}">{{ rarity_chip_label(c.rarity) }}</span></td>
+            <td class="additional-info"><small>{{ c.sets|join(", ") }}</small></td>
+            <td class="cell-center">{% if c.printed %}<span class="printed-tick" title="Printed">✓</span>{% endif %}</td>
             <td><small>{{ c.rule_text | render_rule_text_snippet }}</small></td>
+            <td class="cell-center">{{ c.power_level if c.power_level is not none else "" }}</td>
         </tr>
     {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p>No cards yet.</p>
+<p class="muted">No cards yet.</p>
 {% endif %}
 {% endblock %}

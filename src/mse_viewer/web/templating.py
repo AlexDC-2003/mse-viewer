@@ -11,7 +11,7 @@ from mse_viewer.parser.reminder_template import (
     evaluate_inline_templates,
     evaluate_reminder_template,
 )
-from mse_viewer.parser.tags import render_casting_cost, render_match_for_display
+from mse_viewer.parser.tags import casting_cost_to_braces, render_match_for_display
 
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
@@ -27,19 +27,114 @@ _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 _ALLOWED_TAG = re.compile(r"&lt;(/?)(i|em)&gt;", re.IGNORECASE)
 
 
+# ---------------------------------------------------------------------------
+# Mana glyph rendering (Phase 2.0 prompt 1).
+#
+# Storage is Scryfall-style ``{W}{2/U}{X}`` inside rule_text / reminder
+# strings (the parser normalizes ``<sym>`` wrappers to braced form on
+# ingest). On the casting_cost column the raw MSE form (``2WU``) is kept;
+# the template layer calls ``casting_cost_to_braces`` first so the same
+# regex finds and replaces tokens uniformly.
+#
+# We deliberately do this AFTER html-escape (braces survive escape), so the
+# only HTML we inject is our own controlled span markup.
+# ---------------------------------------------------------------------------
+
+_MANA_TOKEN_RE = re.compile(r"\{([0-9A-Za-z/]+)\}")
+
+# Letters that get a per-color chip class. Anything outside this set falls
+# back to the generic ``.mana`` style.
+_MANA_KNOWN_LETTERS = frozenset("WUBRGCOLPKENSTXYZQ")
+
+
+def _hybrid_classes(parts: list[str]) -> str:
+    """Return additional CSS class(es) to color a hybrid mana span.
+
+    Two-element hybrids get ``mh-XY`` (alphabetically sorted single letters)
+    or ``mh-num-X`` when one side is a number. Three+ element hybrids fall
+    back to ``mh-multi`` which paints all colors via a conic gradient.
+    Phyrexian hybrids (any side is ``P``) get ``mh-XP`` so the phyrexian
+    half reads as gray.
+    """
+    if len(parts) != 2:
+        return "mh-multi"
+    a, b = parts
+    a_is_num = a.isdigit()
+    b_is_num = b.isdigit()
+    if a_is_num and b_is_num:
+        return "mh-multi"
+    if a_is_num and not b_is_num:
+        return f"mh-num-{b.upper()}"
+    if b_is_num and not a_is_num:
+        return f"mh-num-{a.upper()}"
+    # Both letters. Special-case phyrexian.
+    au, bu = a.upper(), b.upper()
+    if "P" in (au, bu):
+        other = bu if au == "P" else au
+        if other in _MANA_KNOWN_LETTERS and other != "P":
+            return f"mh-{other}P"
+        return "mh-multi"
+    # Plain two-color hybrid — sort by canonical WUBRG order if both known.
+    order = "WUBRG"
+    if au in order and bu in order:
+        first, second = sorted([au, bu], key=order.index)
+        return f"mh-{first}{second}"
+    return "mh-multi"
+
+
+def _mana_span_for_token(raw: str) -> str:
+    """Render one ``{X}`` token (the inner body, no braces) as a span."""
+    body = raw.strip()
+    if not body:
+        return "{" + html.escape(raw) + "}"
+    if "/" in body:
+        parts = [p for p in body.split("/") if p]
+        classes = _hybrid_classes(parts)
+        label = "/".join(p.upper() if not p.isdigit() else p for p in parts)
+        return (
+            f'<span class="mana mana-hybrid {classes}" title="{html.escape(label)}">'
+            f'<span class="mana-hybrid-text">{html.escape(label)}</span>'
+            "</span>"
+        )
+    # Single token.
+    if body.isdigit():
+        return f'<span class="mana mana-num" title="{html.escape(body)}">{html.escape(body)}</span>'
+    letter = body[0].upper()
+    if len(body) == 1 and letter in _MANA_KNOWN_LETTERS:
+        # Tap glyph has no visible text — the icon is drawn from pseudo-elements.
+        if letter == "T":
+            return f'<span class="mana mana-T" title="Tap">{html.escape(letter)}</span>'
+        return f'<span class="mana mana-{letter}" title="{html.escape(letter)}">{html.escape(letter)}</span>'
+    # Unknown token — fall back to a plain gray pill so the text is still readable.
+    label = html.escape(body.upper())
+    return f'<span class="mana" title="{label}">{label}</span>'
+
+
+def _inject_mana_symbols(escaped_text: str) -> str:
+    """Replace ``{X}`` tokens in an already-html-escaped string with span markup.
+
+    Only the brace tokens are touched — the rest of the string is preserved
+    verbatim (so any ``<i>`` / ``<br>`` HTML already present remains intact).
+    """
+    return _MANA_TOKEN_RE.sub(lambda m: _mana_span_for_token(m.group(1)), escaped_text)
+
+
 def render_text(value: str | None) -> Markup:
     """Render a stored text value (flavor / keyword reminder / generic prose)
-    safely with italics.
+    safely with italics and mana glyphs.
 
     The parser stores ``<i>...</i>`` markers verbatim; everything else is
     escaped.  Newlines are converted to ``<br>`` so multi-line text reads
-    naturally without needing ``<pre>`` styling.
+    naturally without needing ``<pre>`` styling.  After the italic and
+    line-break passes, ``{X}`` tokens are replaced with mana-glyph spans
+    (Phase 2.0 prompt 1).
     """
     if not value:
         return Markup("")
     escaped = html.escape(value)
     rendered = _ALLOWED_TAG.sub(lambda m: f"<{m.group(1)}{m.group(2).lower()}>", escaped)
     rendered = rendered.replace("\n", "<br>")
+    rendered = _inject_mana_symbols(rendered)
     return Markup(rendered)
 
 
@@ -366,10 +461,16 @@ def render_match(value: str | None) -> Markup:
 
 
 def render_cost(value: str | None) -> Markup:
-    """Render a casting_cost field with hybrid slots in parens."""
+    """Render a casting_cost field as mana glyphs.
+
+    The raw MSE form (``2WU``, ``G/UG/U``, ``X``) is first converted to the
+    Scryfall-brace form via :func:`casting_cost_to_braces` so the mana-glyph
+    injector picks each atomic slot up consistently with rule_text body text.
+    """
     if not value:
         return Markup("")
-    return Markup(html.escape(render_casting_cost(value)))
+    braced = casting_cost_to_braces(value)
+    return Markup(_inject_mana_symbols(html.escape(braced)))
 
 
 def render_colors(values: list[str] | None) -> Markup:
@@ -392,6 +493,89 @@ def render_reminder(value: str | None) -> Markup:
     return render_text(evaluate_reminder_template(value))
 
 
+# ---------------------------------------------------------------------------
+# Card / token classification helpers (Phase 2.0 prompt 1).
+#
+# Pure string-tests used by templates to decide which chips to render and
+# whether to apply the Evolution / Hero row hue. Keeping them in Python (vs.
+# scattered ``{% if "hero" in card.card_type.lower() %}`` checks in Jinja)
+# means the rules live in one place — and a future "Hero supertype is now
+# recorded as a column" refactor only touches this file.
+# ---------------------------------------------------------------------------
+
+
+def _supertype_words(card_type: str | None) -> set[str]:
+    if not card_type:
+        return set()
+    return {p.strip().lower() for p in card_type.split() if p.strip()}
+
+
+def is_hero(obj) -> bool:
+    return "hero" in _supertype_words(getattr(obj, "card_type", None))
+
+
+def is_evolution(obj) -> bool:
+    return "evolution" in _supertype_words(getattr(obj, "card_type", None))
+
+
+def is_legendary(obj) -> bool:
+    return "legendary" in _supertype_words(getattr(obj, "card_type", None))
+
+
+def is_snow(obj) -> bool:
+    return "snow" in _supertype_words(getattr(obj, "card_type", None))
+
+
+def row_hue_class(obj) -> str:
+    """Return ``"row-evolution"``, ``"row-hero"`` or ``""`` for a card/token."""
+    if is_evolution(obj):
+        return "row-evolution"
+    if is_hero(obj):
+        return "row-hero"
+    return ""
+
+
+_RARITY_SLUG = {
+    "common": "common",
+    "uncommon": "uncommon",
+    "rare": "rare",
+    "mythic rare": "mythic",
+    "mythic": "mythic",
+    "special": "special",
+}
+
+
+def rarity_slug(rarity: str | None, *, is_token: bool = False) -> str:
+    """Return the canonical rarity slug used for chip / text-color classes.
+
+    Tokens render as ``special`` regardless of their stored rarity — per the
+    Phase 2.0 prompt, the token rarity chip uses the metallic-light-purple
+    palette (same as the ``special`` rarity for cards).
+    """
+    if is_token:
+        return "special"
+    key = (rarity or "common").strip().lower()
+    return _RARITY_SLUG.get(key, "common")
+
+
+def rarity_chip_class(rarity: str | None, *, is_token: bool = False) -> str:
+    return f"chip chip-rarity-{rarity_slug(rarity, is_token=is_token)}"
+
+
+def rarity_text_class(rarity: str | None, *, is_token: bool = False) -> str:
+    return f"rarity-text-{rarity_slug(rarity, is_token=is_token)}"
+
+
+def rarity_chip_label(rarity: str | None, *, is_token: bool = False) -> str:
+    """Display label for the rarity chip: ``Mythic Rare``, ``Token``, etc."""
+    if is_token:
+        return "Token"
+    key = (rarity or "common").strip().lower()
+    if key == "mythic" or key == "mythic rare":
+        return "Mythic Rare"
+    return key.title() if key else "Common"
+
+
 def get_templates() -> Jinja2Templates:
     t = Jinja2Templates(directory=str(_TEMPLATES_DIR))
     t.env.filters["render_text"] = render_text
@@ -402,6 +586,16 @@ def get_templates() -> Jinja2Templates:
     t.env.filters["render_cost"] = render_cost
     t.env.filters["render_colors"] = render_colors
     t.env.filters["render_reminder"] = render_reminder
+    # Classification globals — used to render chips / row hues in templates.
+    t.env.globals["is_hero"] = is_hero
+    t.env.globals["is_evolution"] = is_evolution
+    t.env.globals["is_legendary"] = is_legendary
+    t.env.globals["is_snow"] = is_snow
+    t.env.globals["row_hue_class"] = row_hue_class
+    t.env.globals["rarity_slug"] = rarity_slug
+    t.env.globals["rarity_chip_class"] = rarity_chip_class
+    t.env.globals["rarity_text_class"] = rarity_text_class
+    t.env.globals["rarity_chip_label"] = rarity_chip_label
     return t
 
 

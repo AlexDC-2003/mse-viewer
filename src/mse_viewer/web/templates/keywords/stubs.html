@@ -2,14 +2,14 @@
 {% block title %}Keyword stubs — mse-viewer{% endblock %}
 {% block content %}
 <h1>Stubs needing definition <small>({{ keywords|length }})</small></h1>
-<p><small>Each row is a card-side reference whose keyword block hasn't been imported yet. Define the keyword (via a <code>keyword:</code> block in a set file, or by editing this row) and the absorption logic will repoint the cards automatically on the next ingest.</small></p>
+<p class="muted"><small>Each row is a card-side reference whose keyword block hasn't been imported yet. Define the keyword (via a <code>keyword:</code> block in a set file, or by editing this row) and the absorption logic will repoint the cards automatically on the next ingest.</small></p>
 {% if keywords %}
 <table>
     <thead><tr><th>Match</th><th>Reminder</th><th>Source</th><th></th></tr></thead>
     <tbody>
     {% for k in keywords %}
         <tr>
-            <td><a href="/keywords/{{ k.id }}">{{ k.name | render_match }}</a></td>
+            <td><a href="/keywords/{{ k.id }}"><strong>{{ k.name | render_match }}</strong></a></td>
             <td><small>{{ k.reminder | render_reminder or "—" }}</small></td>
             <td><small>{{ k.source_keyword_field or "—" }}</small></td>
             <td><a href="/keywords/{{ k.id }}/edit" role="button" class="secondary">Edit</a></td>
@@ -18,7 +18,9 @@
     </tbody>
 </table>
 {% else %}
-<p>No stubs. 🎉</p>
+<p class="muted">No stubs.</p>
 {% endif %}
-<a href="/keywords" role="button" class="secondary">All keywords</a>
+<div class="action-row">
+    <a href="/keywords" role="button" class="secondary">All keywords</a>
+</div>
 {% endblock %}

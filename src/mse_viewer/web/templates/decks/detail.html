@@ -2,26 +2,62 @@
 {% block title %}{{ deck.name }} — mse-viewer{% endblock %}
 {% block content %}
 <article>
-    <header><h2>{{ deck.name }}</h2></header>
-    <dl>
-        <dt>Format</dt><dd>{{ deck.format }}</dd>
-        <dt>Code</dt><dd>{{ deck.code or "—" }}</dd>
-        <dt>Theme</dt><dd>{{ deck.theme or "—" }}</dd>
-        <dt>Archetype</dt><dd>{{ deck.archetype or "—" }}</dd>
-        <dt>Size</dt><dd>{{ deck.size }}</dd>
-        <dt>Owners</dt><dd>{{ deck.owners|join(", ") or "—" }}</dd>
-        <dt>Colors</dt><dd>{{ deck.colors|join(", ") or "—" }}</dd>
-        <dt>Package</dt><dd>{{ deck.package or "—" }}</dd>
-    </dl>
+    <header>
+        <div class="detail-header">
+            <div class="title-block">
+                <h2>{{ deck.name }}</h2>
+                <p class="type-line">{{ deck.format }}{% if deck.code %} · <code>{{ deck.code }}</code>{% endif %}</p>
+            </div>
+            <div class="chip-row">
+                <span class="chip">{{ deck.format }}</span>
+                {% if deck.package %}<span class="chip chip-rarity-rare">{{ deck.package }}</span>{% endif %}
+                <span class="chip chip-rarity-common">{{ deck.size }} cards</span>
+            </div>
+        </div>
+    </header>
+    <div class="detail-grid">
+        <div class="field">
+            <p class="field-label">Format</p>
+            <p class="field-value">{{ deck.format }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Size</p>
+            <p class="field-value">{{ deck.size }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Theme</p>
+            <p class="field-value">{{ deck.theme or "—" }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Archetype</p>
+            <p class="field-value">{{ deck.archetype or "—" }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Owners</p>
+            <p class="field-value">{{ deck.owners|join(", ") or "—" }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Colors</p>
+            <p class="field-value">{{ deck.colors|join(", ") or "—" }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Package</p>
+            <p class="field-value">{{ deck.package or "—" }}</p>
+        </div>
+        <div class="field">
+            <p class="field-label">Code</p>
+            <p class="field-value">{{ deck.code or "—" }}</p>
+        </div>
+    </div>
     <h4>Cards &amp; tokens</h4>
     {% if deck.cards %}
     {% set total = deck.cards|sum(attribute='quantity') %}
     <table>
-        <thead><tr><th>Qty</th><th>Member</th><th>Kind</th></tr></thead>
+        <thead><tr><th class="cell-center">Qty</th><th>Member</th><th>Kind</th></tr></thead>
         <tbody>
         {% for dc in deck.cards %}
             <tr>
-                <td>{{ dc.quantity }}</td>
+                <td class="cell-center"><strong>{{ dc.quantity }}</strong></td>
                 <td>
                     {% if dc.card_id %}
                         <a href="/cards/{{ dc.card.id }}">{{ dc.card.name }}</a>
@@ -29,22 +65,24 @@
                         <a href="/tokens/{{ dc.token.id }}">{{ dc.token.name }}</a>
                     {% endif %}
                 </td>
-                <td><small>{{ dc.member_kind }}</small></td>
+                <td><small class="muted">{{ dc.member_kind }}</small></td>
             </tr>
         {% endfor %}
         </tbody>
         <tfoot>
             <tr>
-                <th>{{ total }}</th>
+                <th class="cell-center">{{ total }}</th>
                 <th>Total</th>
                 <th></th>
             </tr>
         </tfoot>
     </table>
     {% else %}
-        <p>No cards or tokens in this deck.</p>
+        <p class="muted">No cards or tokens in this deck.</p>
     {% endif %}
 </article>
-<a href="/decks" role="button" class="secondary">Back</a>
-<a href="/decks/{{ deck.id }}/edit" role="button">Edit</a>
+<div class="action-row">
+    <a href="/decks" role="button" class="secondary">Back</a>
+    <a href="/decks/{{ deck.id }}/edit" role="button">Edit</a>
+</div>
 {% endblock %}

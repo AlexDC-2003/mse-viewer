@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:8000/cards/2)",
+      "Bash(curl -s -X POST http://localhost:8000/tokens/new -d \"name=Soldier%20Token&display_name=Soldier&card_type=Token%20Creature&card_subtype=Soldier&casting_cost=&colors=W&power=1&toughness=1&rule_text=&keyword_names=&alt_arts=&related_cards=&alias=&flavor_text=&notes=\" -w \"\\\\n%{http_code}\\\\n\" -i)"
+    ]
+  }
+}
